@@ -1,0 +1,8 @@
+import type React from 'react';import Link from 'next/link';import type { ComponentProps } from 'react';
+export function Button(p:ComponentProps<'button'>){return <button {...p} className={`rounded-lg bg-brand-700 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-600 disabled:opacity-50 ${p.className??''}`}/>}
+export function GhostLink({className='',...p}:ComponentProps<typeof Link>){return <Link {...p} className={`rounded-lg px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 ${className}`}/>}
+export function Card({className='',...p}:ComponentProps<'section'>){return <section {...p} className={`rounded-2xl border border-slate-200 bg-white p-5 shadow-sm ${className}`}/>}
+export function Field({label,...p}:ComponentProps<'input'>&{label:string}){return <label className="grid gap-1 text-sm font-medium text-slate-700">{label}<input {...p} className="rounded-lg border border-slate-300 px-3 py-2 font-normal"/></label>}
+export function Select({label,children,...p}:ComponentProps<'select'>&{label:string}){return <label className="grid gap-1 text-sm font-medium text-slate-700">{label}<select {...p} className="rounded-lg border border-slate-300 px-3 py-2 font-normal">{children}</select></label>}
+export function Badge({children}:{children:React.ReactNode}){return <span className="rounded-full bg-brand-50 px-2.5 py-1 text-xs font-semibold text-brand-700">{children}</span>}
+export function Empty({title,body}:{title:string;body:string}){return <div className="rounded-xl border border-dashed border-slate-300 bg-white p-8 text-center"><h3 className="font-semibold">{title}</h3><p className="mt-1 text-sm text-slate-500">{body}</p></div>}

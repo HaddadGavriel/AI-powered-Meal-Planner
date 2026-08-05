@@ -1,0 +1,2 @@
+@tailwind base;@tailwind components;@tailwind utilities;
+:root{color-scheme:light} body{background:#f8fafc;color:#0f172a} a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:3px solid #86efac;outline-offset:2px}.container-page{max-width:1180px;margin:0 auto;padding:1rem}
