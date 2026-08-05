@@ -32,7 +32,7 @@ export function IngredientForm({ item, onSaved }: { item?: Ingredient; onSaved: 
       }}
     >
       <Field required label="Name" value={name} onChange={e => setName(e.target.value)} />
-      <Select label="Category" value={category} onChange={e => setCategory(e.target.value)}>
+      <Select label="Category" value={category} onChange={e => setCategory(e.target.value as Ingredient['category'])}>
         {['Produce', 'Meat and poultry', 'Seafood', 'Dairy', 'Grains', 'Legumes', 'Spices', 'Condiments', 'Baking', 'Other'].map(x => (
           <option key={x}>{x}</option>
         ))}
