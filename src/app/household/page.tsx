@@ -1,2 +1,122 @@
-'use client';import { useState } from 'react';import { AppShell } from '@/components/AppShell';import { Badge,Button,Card,Field,Select } from '@/components/ui';import { repo } from '@/data/repository';import type { Role } from '@/lib/types';
-export default function Household(){const [tick,setTick]=useState(0),[email,setEmail]=useState('new.member@example.com'),[err,setErr]=useState('');const members=repo.members();return <AppShell><h1 className="text-3xl font-bold">Household members</h1>{err&&<p role="alert" className="rounded bg-red-50 p-3 text-red-700">{err}</p>}<Card><h2 className="font-semibold">Invite someone</h2><form className="grid gap-3 md:grid-cols-3" onSubmit={e=>{e.preventDefault();repo.invite(email,'member');setTick(tick+1)}}><Field label="Email" value={email} onChange={e=>setEmail(e.target.value)}/><Button>Send simulated invitation</Button></form></Card><Card><h2 className="font-semibold">Active members</h2><div className="overflow-x-auto"><table className="w-full text-left text-sm"><tbody>{members.map(m=><tr className="border-t" key={m.id}><td className="py-3"><b>{m.name}</b><br/>{m.email}</td><td><Badge>{m.status}</Badge></td><td><Select label="Role" value={m.role} onChange={e=>{try{repo.changeRole(m.id,e.target.value as Role);setErr('')}catch(x){setErr((x as Error).message)}setTick(tick+1)}}><option value="owner">Owner</option><option value="administrator">Administrator</option><option value="member">Member</option></Select></td><td><Button className="bg-red-700" onClick={()=>{try{confirm('Remove member?')&&repo.removeMember(m.id);setErr('')}catch(x){setErr((x as Error).message)}setTick(tick+1)}}>Remove</Button></td></tr>)}</tbody></table></div></Card><Card><h2 className="font-semibold">Pending invitations</h2>{repo.invitations().map(i=><p className="flex flex-wrap items-center gap-2 border-t py-3" key={i.id}>{i.email} <Badge>{i.role}</Badge><Button onClick={()=>{repo.resendInvitation(i.id);setTick(tick+1)}}>Resend</Button><Button className="bg-red-700" onClick={()=>{repo.cancelInvitation(i.id);setTick(tick+1)}}>Cancel</Button></p>)}</Card></AppShell>}
+'use client';
+
+import { useState } from 'react';
+import { AppShell } from '@/components/AppShell';
+import { Badge, Button, Card, Field, Select } from '@/components/ui';
+import { repo } from '@/data/repository';
+import type { Role } from '@/lib/types';
+
+export default function Household() {
+  const [tick, setTick] = useState(0);
+  const [email, setEmail] = useState('new.member@example.com');
+  const [err, setErr] = useState('');
+  const members = repo.members();
+
+  return (
+    <AppShell>
+      <h1 className="text-3xl font-bold">Household members</h1>
+      {err && (
+        <p role="alert" className="rounded bg-red-50 p-3 text-red-700">
+          {err}
+        </p>
+      )}
+      <Card>
+        <h2 className="font-semibold">Invite someone</h2>
+        <form
+          className="grid gap-3 md:grid-cols-3"
+          onSubmit={e => {
+            e.preventDefault();
+            repo.invite(email, 'member');
+            setTick(tick + 1);
+          }}
+        >
+          <Field label="Email" value={email} onChange={e => setEmail(e.target.value)} />
+          <Button>Send simulated invitation</Button>
+        </form>
+      </Card>
+      <Card>
+        <h2 className="font-semibold">Active members</h2>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-sm">
+            <tbody>
+              {members.map(m => (
+                <tr className="border-t" key={m.id}>
+                  <td className="py-3">
+                    <b>{m.name}</b>
+                    <br />
+                    {m.email}
+                  </td>
+                  <td>
+                    <Badge>{m.status}</Badge>
+                  </td>
+                  <td>
+                    <Select
+                      label="Role"
+                      value={m.role}
+                      onChange={e => {
+                        try {
+                          repo.changeRole(m.id, e.target.value as Role);
+                          setErr('');
+                        } catch (x) {
+                          setErr((x as Error).message);
+                        }
+                        setTick(tick + 1);
+                      }}
+                    >
+                      <option value="owner">Owner</option>
+                      <option value="administrator">Administrator</option>
+                      <option value="member">Member</option>
+                    </Select>
+                  </td>
+                  <td>
+                    <Button
+                      className="bg-red-700"
+                      onClick={() => {
+                        try {
+                          if (confirm('Remove member?')) {
+                            repo.removeMember(m.id);
+                          }
+                          setErr('');
+                        } catch (x) {
+                          setErr((x as Error).message);
+                        }
+                        setTick(tick + 1);
+                      }}
+                    >
+                      Remove
+                    </Button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+      <Card>
+        <h2 className="font-semibold">Pending invitations</h2>
+        {repo.invitations().map(i => (
+          <p className="flex flex-wrap items-center gap-2 border-t py-3" key={i.id}>
+            {i.email} <Badge>{i.role}</Badge>
+            <Button
+              onClick={() => {
+                repo.resendInvitation(i.id);
+                setTick(tick + 1);
+              }}
+            >
+              Resend
+            </Button>
+            <Button
+              className="bg-red-700"
+              onClick={() => {
+                repo.cancelInvitation(i.id);
+                setTick(tick + 1);
+              }}
+            >
+              Cancel
+            </Button>
+          </p>
+        ))}
+      </Card>
+    </AppShell>
+  );
+}

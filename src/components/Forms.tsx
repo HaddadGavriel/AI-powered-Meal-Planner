@@ -1,4 +1,151 @@
-'use client';import { useState } from 'react';import { repo } from '@/data/repository';import type { Ingredient,MealType,PlanStatus,Recipe,Role,Status,WeeklyMealPlan } from '@/lib/types';import { Button,Field,Select } from './ui';
-export function IngredientForm({item,onSaved}:{item?:Ingredient;onSaved:()=>void}){const [name,setName]=useState(item?.name??'');const [category,setCategory]=useState(item?.category??'Produce');return <form className="grid gap-3 md:grid-cols-2" onSubmit={e=>{e.preventDefault();const base={id:item?.id??`ing-${name.toLowerCase().replaceAll(' ','-')}`,name,category:category as Ingredient['category'],defaultUnit:item?.defaultUnit??'pieces',allergens:item?.allergens??[],notes:item?.notes??'',status:item?.status??'active' as Status};item?repo.updateIngredient(item.id,base):repo.saveIngredient(base);onSaved()}}><Field required label="Name" value={name} onChange={e=>setName(e.target.value)}/><Select label="Category" value={category} onChange={e=>setCategory(e.target.value)}>{['Produce','Meat and poultry','Seafood','Dairy','Grains','Legumes','Spices','Condiments','Baking','Other'].map(x=><option key={x}>{x}</option>)}</Select><Button>Save ingredient</Button></form>}
-export function RecipeForm({item,onSaved}:{item?:Recipe;onSaved:()=>void}){const ingredients=repo.ingredients();const [name,setName]=useState(item?.name??'');const [ing,setIng]=useState(item?.ingredients??[{ingredientId:ingredients[0]?.id??'',quantity:1,unit:'pieces',preparationNote:''}]);const [steps,setSteps]=useState(item?.instructions??['Prepare ingredients.']);return <form className="space-y-3" onSubmit={e=>{e.preventDefault();const r={id:item?.id??`rec-${name.toLowerCase().replaceAll(' ','-')}`,name,description:item?.description??'A household favorite recipe for the weekly plan.',prepTimeMinutes:item?.prepTimeMinutes??10,cookTimeMinutes:item?.cookTimeMinutes??20,servings:item?.servings??4,difficulty:item?.difficulty??'easy',cuisine:item?.cuisine??'Home',mealTypes:item?.mealTypes??['dinner'] as MealType[],tags:item?.tags??['family'],instructions:steps,ingredients:ing,imageUrl:'',status:item?.status??'active' as Status};item?repo.updateRecipe(item.id,r):repo.saveRecipe(r);onSaved()}}><Field required label="Recipe name" value={name} onChange={e=>setName(e.target.value)}/><h3 className="font-semibold">Structured ingredients</h3>{ing.map((row,i)=><div className="grid gap-2 md:grid-cols-4" key={i}><select aria-label="Ingredient" className="rounded border p-2" value={row.ingredientId} onChange={e=>setIng(ing.map((x,j)=>j===i?{...x,ingredientId:e.target.value}:x))}>{ingredients.map(x=><option key={x.id} value={x.id}>{x.name}</option>)}</select><input aria-label="Quantity" className="rounded border p-2" type="number" value={row.quantity} onChange={e=>setIng(ing.map((x,j)=>j===i?{...x,quantity:Number(e.target.value)}:x))}/><input aria-label="Unit" className="rounded border p-2" value={row.unit} onChange={e=>setIng(ing.map((x,j)=>j===i?{...x,unit:e.target.value}:x))}/><input aria-label="Preparation note" className="rounded border p-2" value={row.preparationNote} onChange={e=>setIng(ing.map((x,j)=>j===i?{...x,preparationNote:e.target.value}:x))}/></div>)}<Button type="button" onClick={()=>setIng([...ing,{ingredientId:ingredients[0].id,quantity:1,unit:ingredients[0].defaultUnit,preparationNote:''}])}>Add ingredient row</Button><h3 className="font-semibold">Ordered steps</h3>{steps.map((s,i)=><Field key={i} label={`Step ${i+1}`} value={s} onChange={e=>setSteps(steps.map((x,j)=>j===i?e.target.value:x))}/>) }<Button type="button" onClick={()=>setSteps([...steps,''])}>Add step</Button> <Button>Save recipe</Button></form>}
-export function PlanForm({item,onSaved}:{item?:WeeklyMealPlan;onSaved:()=>void}){const recipes=repo.recipes();const [name,setName]=useState(item?.name??'New weekly plan');const [date,setDate]=useState(item?.weekStartDate??'2026-08-10');return <form className="grid gap-3 md:grid-cols-3" onSubmit={e=>{e.preventDefault();const p={id:item?.id??`plan-${date}`,householdId:'hh-green-table',name,weekStartDate:date,status:item?.status??'draft' as PlanStatus,notes:item?.notes??'',entries:item?.entries??[{id:`meal-${date}-dinner`,date,mealType:'dinner' as MealType,recipeId:recipes[0].id,servingCount:4}]};item?repo.updatePlan(item.id,p):repo.savePlan(p);onSaved()}}><Field label="Plan name" value={name} onChange={e=>setName(e.target.value)}/><Field label="Week start" type="date" value={date} onChange={e=>setDate(e.target.value)}/><Button>Save plan</Button></form>}
+'use client';
+
+import { useState } from 'react';
+import { repo } from '@/data/repository';
+import type { Ingredient, MealType, PlanStatus, Recipe, Status, WeeklyMealPlan } from '@/lib/types';
+import { Button, Field, Select } from './ui';
+
+export function IngredientForm({ item, onSaved }: { item?: Ingredient; onSaved: () => void }) {
+  const [name, setName] = useState(item?.name ?? '');
+  const [category, setCategory] = useState(item?.category ?? 'Produce');
+
+  return (
+    <form
+      className="grid gap-3 md:grid-cols-2"
+      onSubmit={e => {
+        e.preventDefault();
+        const base = {
+          id: item?.id ?? `ing-${name.toLowerCase().replaceAll(' ', '-')}`,
+          name,
+          category: category as Ingredient['category'],
+          defaultUnit: item?.defaultUnit ?? 'pieces',
+          allergens: item?.allergens ?? [],
+          notes: item?.notes ?? '',
+          status: (item?.status ?? 'active') as Status,
+        };
+        if (item) {
+          repo.updateIngredient(item.id, base);
+        } else {
+          repo.saveIngredient(base);
+        }
+        onSaved();
+      }}
+    >
+      <Field required label="Name" value={name} onChange={e => setName(e.target.value)} />
+      <Select label="Category" value={category} onChange={e => setCategory(e.target.value)}>
+        {['Produce', 'Meat and poultry', 'Seafood', 'Dairy', 'Grains', 'Legumes', 'Spices', 'Condiments', 'Baking', 'Other'].map(x => (
+          <option key={x}>{x}</option>
+        ))}
+      </Select>
+      <Button>Save ingredient</Button>
+    </form>
+  );
+}
+
+export function RecipeForm({ item, onSaved }: { item?: Recipe; onSaved: () => void }) {
+  const ingredients = repo.ingredients();
+  const [name, setName] = useState(item?.name ?? '');
+  const [ing, setIng] = useState(item?.ingredients ?? [{ ingredientId: ingredients[0]?.id ?? '', quantity: 1, unit: 'pieces', preparationNote: '' }]);
+  const [steps, setSteps] = useState(item?.instructions ?? ['Prepare ingredients.']);
+
+  return (
+    <form
+      className="space-y-3"
+      onSubmit={e => {
+        e.preventDefault();
+        const r = {
+          id: item?.id ?? `rec-${name.toLowerCase().replaceAll(' ', '-')}`,
+          name,
+          description: item?.description ?? 'A household favorite recipe for the weekly plan.',
+          prepTimeMinutes: item?.prepTimeMinutes ?? 10,
+          cookTimeMinutes: item?.cookTimeMinutes ?? 20,
+          servings: item?.servings ?? 4,
+          difficulty: item?.difficulty ?? 'easy',
+          cuisine: item?.cuisine ?? 'Home',
+          mealTypes: (item?.mealTypes ?? ['dinner']) as MealType[],
+          tags: item?.tags ?? ['family'],
+          instructions: steps,
+          ingredients: ing,
+          imageUrl: '',
+          status: (item?.status ?? 'active') as Status,
+        };
+        if (item) {
+          repo.updateRecipe(item.id, r);
+        } else {
+          repo.saveRecipe(r);
+        }
+        onSaved();
+      }}
+    >
+      <Field required label="Recipe name" value={name} onChange={e => setName(e.target.value)} />
+      <h3 className="font-semibold">Structured ingredients</h3>
+      {ing.map((row, i) => (
+        <div className="grid gap-2 md:grid-cols-4" key={i}>
+          <select aria-label="Ingredient" className="rounded border p-2" value={row.ingredientId} onChange={e => setIng(ing.map((x, j) => (j === i ? { ...x, ingredientId: e.target.value } : x)))}>
+            {ingredients.map(x => (
+              <option key={x.id} value={x.id}>
+                {x.name}
+              </option>
+            ))}
+          </select>
+          <input aria-label="Quantity" className="rounded border p-2" type="number" value={row.quantity} onChange={e => setIng(ing.map((x, j) => (j === i ? { ...x, quantity: Number(e.target.value) } : x)))} />
+          <input aria-label="Unit" className="rounded border p-2" value={row.unit} onChange={e => setIng(ing.map((x, j) => (j === i ? { ...x, unit: e.target.value } : x)))} />
+          <input aria-label="Preparation note" className="rounded border p-2" value={row.preparationNote} onChange={e => setIng(ing.map((x, j) => (j === i ? { ...x, preparationNote: e.target.value } : x)))} />
+        </div>
+      ))}
+      <Button type="button" onClick={() => setIng([...ing, { ingredientId: ingredients[0].id, quantity: 1, unit: ingredients[0].defaultUnit, preparationNote: '' }])}>
+        Add ingredient row
+      </Button>
+      <h3 className="font-semibold">Ordered steps</h3>
+      {steps.map((s, i) => (
+        <Field key={i} label={`Step ${i + 1}`} value={s} onChange={e => setSteps(steps.map((x, j) => (j === i ? e.target.value : x)))} />
+      ))}
+      <Button type="button" onClick={() => setSteps([...steps, ''])}>
+        Add step
+      </Button>{' '}
+      <Button>Save recipe</Button>
+    </form>
+  );
+}
+
+export function PlanForm({ item, onSaved }: { item?: WeeklyMealPlan; onSaved: () => void }) {
+  const recipes = repo.recipes();
+  const [name, setName] = useState(item?.name ?? 'New weekly plan');
+  const [date, setDate] = useState(item?.weekStartDate ?? '2026-08-10');
+
+  return (
+    <form
+      className="grid gap-3 md:grid-cols-3"
+      onSubmit={e => {
+        e.preventDefault();
+        const p = {
+          id: item?.id ?? `plan-${date}`,
+          householdId: 'hh-green-table',
+          name,
+          weekStartDate: date,
+          status: (item?.status ?? 'draft') as PlanStatus,
+          notes: item?.notes ?? '',
+          entries: item?.entries ?? [
+            {
+              id: `meal-${date}-dinner`,
+              date,
+              mealType: 'dinner' as MealType,
+              recipeId: recipes[0].id,
+              servingCount: 4,
+            },
+          ],
+        };
+        if (item) {
+          repo.updatePlan(item.id, p);
+        } else {
+          repo.savePlan(p);
+        }
+        onSaved();
+      }}
+    >
+      <Field label="Plan name" value={name} onChange={e => setName(e.target.value)} />
+      <Field label="Week start" type="date" value={date} onChange={e => setDate(e.target.value)} />
+      <Button>Save plan</Button>
+    </form>
+  );
+}
