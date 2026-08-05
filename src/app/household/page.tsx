@@ -14,7 +14,7 @@ export default function Household() {
 
   return (
     <AppShell>
-      <h1 className="text-3xl font-bold">Household members</h1>
+      <h1 className="text-3xl font-bold tracking-tight">Household members</h1>
       {err && (
         <p role="alert" className="rounded bg-red-50 p-3 text-red-700">
           {err}
@@ -40,7 +40,7 @@ export default function Household() {
           <table className="w-full text-left text-sm">
             <tbody>
               {members.map(m => (
-                <tr className="border-t" key={m.id}>
+                <tr className="border-t border-[rgb(var(--border))]" key={m.id}>
                   <td className="py-3">
                     <b>{m.name}</b>
                     <br />
@@ -70,7 +70,7 @@ export default function Household() {
                   </td>
                   <td>
                     <Button
-                      className="bg-red-700"
+                      variant="destructive"
                       onClick={() => {
                         try {
                           if (confirm('Remove member?')) {
@@ -95,7 +95,7 @@ export default function Household() {
       <Card>
         <h2 className="font-semibold">Pending invitations</h2>
         {repo.invitations().map(i => (
-          <p className="flex flex-wrap items-center gap-2 border-t py-3" key={i.id}>
+          <p className="flex flex-wrap items-center gap-2 border-t border-[rgb(var(--border))] py-3" key={i.id}>
             {i.email} <Badge>{i.role}</Badge>
             <Button
               onClick={() => {
@@ -106,7 +106,7 @@ export default function Household() {
               Resend
             </Button>
             <Button
-              className="bg-red-700"
+              variant="destructive"
               onClick={() => {
                 repo.cancelInvitation(i.id);
                 setTick(tick + 1);

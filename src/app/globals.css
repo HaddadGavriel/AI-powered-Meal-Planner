@@ -1,2 +1,69 @@
-@tailwind base;@tailwind components;@tailwind utilities;
-:root{color-scheme:light} body{background:#f8fafc;color:#0f172a} a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:3px solid #86efac;outline-offset:2px}.container-page{max-width:1180px;margin:0 auto;padding:1rem}
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+  --background: 248 250 252;
+  --foreground: 15 23 42;
+  --muted: 100 116 139;
+  --surface: 255 255 255;
+  --surface-raised: 255 255 255;
+  --border: 226 232 240;
+  --input: 203 213 225;
+  --primary: 22 101 52;
+  --primary-hover: 21 128 61;
+  --primary-soft: 220 252 231;
+  --accent: 14 116 144;
+  --success: 22 163 74;
+  --warning: 217 119 6;
+  --destructive: 185 28 28;
+  --focus: 20 184 166;
+  --radius: 0.875rem;
+  --shadow: 0 1px 2px rgb(15 23 42 / 0.06), 0 10px 30px rgb(15 23 42 / 0.06);
+}
+
+.dark {
+  color-scheme: dark;
+  --background: 2 6 23;
+  --foreground: 226 232 240;
+  --muted: 148 163 184;
+  --surface: 15 23 42;
+  --surface-raised: 30 41 59;
+  --border: 51 65 85;
+  --input: 71 85 105;
+  --primary: 74 222 128;
+  --primary-hover: 134 239 172;
+  --primary-soft: 20 83 45;
+  --accent: 103 232 249;
+  --success: 74 222 128;
+  --warning: 251 191 36;
+  --destructive: 248 113 113;
+  --focus: 45 212 191;
+  --shadow: 0 1px 2px rgb(0 0 0 / 0.28), 0 18px 50px rgb(0 0 0 / 0.22);
+}
+
+* { box-sizing: border-box; }
+html { min-height: 100%; background: rgb(var(--background)); }
+body {
+  min-height: 100vh;
+  margin: 0;
+  background:
+    radial-gradient(circle at top left, rgb(var(--primary-soft) / .45), transparent 28rem),
+    rgb(var(--background));
+  color: rgb(var(--foreground));
+  font-feature-settings: 'cv02','cv03','cv04','cv11';
+  text-rendering: optimizeLegibility;
+}
+a { color: inherit; }
+::selection { background: rgb(var(--primary-soft)); color: rgb(var(--foreground)); }
+:where(a,button,input,select,textarea):focus-visible {
+  outline: 3px solid rgb(var(--focus));
+  outline-offset: 2px;
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; scroll-behavior: auto !important; transition-duration: .01ms !important; }
+}
+.container-page { width: min(100% - 2rem, 1180px); margin-inline: auto; padding-block: 1.25rem; }
+@media (min-width: 768px) { .container-page { width: min(100% - 3rem, 1180px); padding-block: 1.75rem; } }
+.text-muted { color: rgb(var(--muted)); }

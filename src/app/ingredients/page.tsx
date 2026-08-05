@@ -17,7 +17,7 @@ export default function Ingredients() {
 
   return (
     <AppShell>
-      <h1 className="text-3xl font-bold">Ingredients</h1>
+      <h1 className="text-3xl font-bold tracking-tight">Ingredients</h1>
       <Card>
         <div className="grid gap-3 md:grid-cols-3">
           <Field label="Search" value={q} onChange={e => setQ(e.target.value)} />
@@ -47,7 +47,7 @@ export default function Ingredients() {
               <p>
                 <Badge>{i.category}</Badge> {i.defaultUnit} · {i.status}
               </p>
-              <p className="text-sm text-slate-600">{i.notes}</p>
+              <p className="text-sm text-[rgb(var(--muted))]">{i.notes}</p>
               <div className="mt-3 flex gap-2">
                 <Button
                   onClick={() => {
@@ -58,7 +58,7 @@ export default function Ingredients() {
                   {i.status === 'active' ? 'Archive' : 'Restore'}
                 </Button>
                 <Button
-                  className="bg-red-700"
+                  variant="destructive"
                   onClick={() => {
                     if (confirm('Delete ingredient?')) {
                       repo.deleteIngredient(i.id);
