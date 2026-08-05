@@ -1,0 +1,1 @@
+import Link from 'next/link';export default function NotFound(){return <main className="container-page"><h1 className="text-3xl font-bold">Page not found</h1><p>The requested Meal Planner page does not exist.</p><Link className="text-brand-700 underline" href="/dashboard">Go to dashboard</Link></main>}
