@@ -1,63 +1,9 @@
-import React from 'react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
-import { ingredientSchema, recipeSchema, weeklyMealPlanSchema } from '@/lib/schemas';
-import { repo } from '@/data/repository';
+import { beforeEach,describe,expect,it,vi } from 'vitest';
+import { appDataSchema,ingredientSchema,recipeSchema,weeklyMealPlanSchema } from '@/lib/schemas';
+import { HttpMealPlannerRepository,LocalStorageMealPlannerRepository,STORAGE_KEY } from '@/data/repository';
 import { seedData } from '@/data/seed';
-import { AppShell } from '@/components/AppShell';
-
-vi.mock('next/navigation', () => ({
-  usePathname: () => '/dashboard',
-  useRouter: () => ({ push: vi.fn() }),
-}));
-
-beforeEach(() => {
-  localStorage.clear();
-  repo.reset();
-});
-
-describe('schemas and seed relationships', () => {
-  it('validates ingredient recipe and meal plans', () => {
-    expect(ingredientSchema.safeParse(seedData.ingredients[0]).success).toBe(true);
-    expect(recipeSchema.safeParse(seedData.recipes[0]).success).toBe(true);
-    expect(weeklyMealPlanSchema.safeParse(seedData.plans[0]).success).toBe(true);
-  });
-
-  it('recipes reference seeded ingredients', () => {
-    const ids = new Set(seedData.ingredients.map(i => i.id));
-    expect(seedData.recipes.every(r => r.ingredients.every(i => ids.has(i.ingredientId)))).toBe(true);
-  });
-});
-
-describe('repository', () => {
-  it('authenticates the demo user and persists session', () => {
-    repo.login(repo.demo.email, repo.demo.password);
-    expect(repo.currentUser()?.role).toBe('owner');
-    expect(repo.getSession()).not.toBeNull();
-  });
-
-  it('persists CRUD and resets seed data', () => {
-    repo.saveIngredient({ id: 'ing-test', name: 'Test Mint', category: 'Produce', defaultUnit: 'cups', allergens: [], status: 'active' });
-    expect(repo.ingredients().some(i => i.id === 'ing-test')).toBe(true);
-    repo.reset();
-    expect(repo.ingredients().some(i => i.id === 'ing-test')).toBe(false);
-  });
-
-  it('prevents removing or demoting the only owner', () => {
-    expect(() => repo.changeRole('user-owner', 'member')).toThrow(/only owner/);
-    expect(() => repo.removeMember('user-owner')).toThrow(/only owner/);
-  });
-});
-
-describe('navigation shell', () => {
-  it('shows protected navigation for logged in users', () => {
-    repo.login(repo.demo.email, repo.demo.password);
-    render(
-      <AppShell>
-        <h1>Child</h1>
-      </AppShell>,
-    );
-    expect(screen.getByRole('navigation', { name: /main/i })).toBeInTheDocument();
-    expect(screen.getByText('Ingredients')).toBeInTheDocument();
-  });
-});
+let repo:LocalStorageMealPlannerRepository;
+beforeEach(async()=>{localStorage.clear();repo=new LocalStorageMealPlannerRepository();await repo.reset();await repo.login('owner@mealplanner.dev','mealplanner-demo')});
+describe('schemas and seeds',()=>{it('validates every domain and relationship',()=>{expect(appDataSchema.safeParse(seedData).success).toBe(true);expect(ingredientSchema.parse(seedData.ingredients[0])).toBeTruthy();expect(recipeSchema.parse(seedData.recipes[0])).toBeTruthy();expect(weeklyMealPlanSchema.parse(seedData.plans[0])).toBeTruthy();const ingredients=new Set(seedData.ingredients.map(x=>x.id)),recipes=new Set(seedData.recipes.map(x=>x.id));expect(seedData.recipes.every(r=>r.ingredients.every(x=>ingredients.has(x.ingredientId)))).toBe(true);expect(seedData.plans.every(p=>p.entries.every(x=>recipes.has(x.recipeId)))).toBe(true)})});
+describe('local repository',()=>{it('recovers corrupt storage and persists CRUD/profile/diet',async()=>{localStorage.setItem(STORAGE_KEY,'bad json');expect((await repo.getData()).version).toBe(2);const i=await repo.createIngredient({name:'Fresh Mint',category:'Produce',defaultUnit:'bunches',allergens:[],notes:'',status:'active'});expect((await repo.getData()).ingredients.some(x=>x.id===i.id)).toBe(true);await repo.updateProfile({name:'Avery Updated',email:'owner@mealplanner.dev'});await repo.updateDietaryProfile('user-owner',{dietaryPatterns:['vegan'],allergens:['soy'],excludedIngredients:[],preferences:'test'});expect((await repo.currentUser())?.name).toBe('Avery Updated')});it('enforces references and only owner',async()=>{await expect(repo.deleteIngredient('ing-pasta')).rejects.toThrow(/reference/i);await expect(repo.deleteRecipe('rec-pasta')).rejects.toThrow(/reference/i);await expect(repo.changeRole('user-owner','member')).rejects.toThrow(/only owner/i);await expect(repo.removeMember('user-owner')).rejects.toThrow(/only owner/i)});it('runs invitation lifecycle',async()=>{const inv=await repo.invite('new@example.com','member');const resent=await repo.resendInvitation(inv.id);expect(resent.token).not.toBe(inv.token);const member=await repo.acceptInvitation(resent.token,'New Person');expect(member.email).toBe('new@example.com');await expect(repo.acceptInvitation(resent.token,'Again')).rejects.toThrow(/accepted/i)});it('scales, aggregates, and preserves manual shopping items',async()=>{const list=await repo.generateShoppingList('plan-current');expect(list.items.find(x=>x.ingredientId==='ing-tortilla')?.quantity).toBe(12);expect(list.items.some(x=>x.name==='Bananas'&&x.source==='manual')).toBe(true)});it('validates plan week dates',async()=>{await expect(repo.upsertMeal('plan-current',{date:'2026-09-01',mealType:'dinner',recipeId:'rec-pasta',servingCount:2})).rejects.toThrow(/plan week/)})});
+describe('HTTP mapping',()=>{it('maps profile updates',async()=>{const fetcher=vi.fn().mockResolvedValue({ok:true,status:200,json:async()=>seedData.members[0]});const http=new HttpMealPlannerRepository('https://example.test/api/v1',fetcher as never);await http.updateProfile({name:'Avery',email:'owner@mealplanner.dev'});expect(fetcher).toHaveBeenCalledWith('https://example.test/api/v1/users/me',expect.objectContaining({method:'PATCH'}))})});

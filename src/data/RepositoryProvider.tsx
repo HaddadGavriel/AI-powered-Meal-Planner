@@ -1,0 +1,8 @@
+'use client';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { createRepository, type MealPlannerRepository } from './repository';
+import type { AppData, Member } from '@/lib/types';
+type Context={repo:MealPlannerRepository;data:AppData|null;user:Member|null;loading:boolean;error:string|null;refresh():Promise<void>;run<T>(work:()=>Promise<T>,success?:string):Promise<T|undefined>;message:string|null};
+const C=createContext<Context|null>(null);
+export function RepositoryProvider({children}:{children:React.ReactNode}){const repo=useMemo(createRepository,[]),[data,setData]=useState<AppData|null>(null),[user,setUser]=useState<Member|null>(null),[loading,setLoading]=useState(true),[error,setError]=useState<string|null>(null),[message,setMessage]=useState<string|null>(null);const refresh=useCallback(async()=>{setLoading(true);try{setData(await repo.getData());setUser(await repo.currentUser());setError(null)}catch(e){setError(e instanceof Error?e.message:'Unable to load data.')}finally{setLoading(false)}},[repo]);useEffect(()=>{void refresh()},[refresh]);const run=useCallback(async<T,>(work:()=>Promise<T>,success?:string)=>{setError(null);setMessage(null);try{const result=await work();await refresh();if(success)setMessage(success);return result}catch(e){setError(e instanceof Error?e.message:'Something went wrong.');return undefined}},[refresh]);return <C.Provider value={{repo,data,user,loading,error,refresh,run,message}}>{children}</C.Provider>}
+export function useMealPlanner(){const x=useContext(C);if(!x)throw new Error('RepositoryProvider missing');return x}

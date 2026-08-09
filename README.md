@@ -1,68 +1,53 @@
-# Meal Planner
+# Meal Planner frontend
 
-Meal Planner is a polished, frontend-only household meal-planning application built with Next.js App Router, React, TypeScript, Tailwind CSS, Zod, Vitest, React Testing Library, and Playwright.
+A frontend-only household meal-planning demo built with Next.js, React, TypeScript, Tailwind CSS, and Zod. Stage 0 intentionally includes **no backend, database, API routes, server actions, real authentication/email, AI, billing, or medical-safety guarantees**.
 
-## Scope and security
+## Implemented flows
 
-This version has **no backend, database, API routes, server actions, billing, real authentication, or AI features**. Authentication is simulated in the browser for development only and does not provide real security. All data is deterministic dummy data persisted in `localStorage` through `src/data/repository.ts`.
+The app provides simulated role-based sign-in, editable user and dietary profiles, household/member/invitation management, ingredient and recipe CRUD, weekly plans and movable meal entries, deterministic shopping-list generation, audit activity, resilient mock persistence, and light/dark/system themes. Frontend permissions are UX only; a backend must reauthorize every request.
 
-## Features
+## Architecture
 
-- Simulated sign in/out with protected pages and current-user display.
-- Dashboard with current plan, today’s meals, upcoming recipes, ingredient and member counts.
-- Household members, roles, pending invitations, role changes, resend/cancel invitations, and only-owner safeguards.
-- Ingredient CRUD with search, category filter, archive/restore, and delete confirmation.
-- Recipe CRUD with structured ingredient rows and ordered instruction steps.
-- Weekly meal-plan CRUD with calendar view, status controls, meal add/move/remove interactions.
-- Settings for profile, household details, appearance note, reset seed data, and logout.
+Components use `MealPlannerRepository` asynchronously through `RepositoryProvider`. The default `LocalStorageMealPlannerRepository` validates stored data with Zod, backs up corrupt data, and resets to versioned deterministic seeds. `HttpMealPlannerRepository` maps the same interface to the contract in [`docs/backend-integration.md`](docs/backend-integration.md). Product rules are in [`docs/product-logic.md`](docs/product-logic.md).
 
-## Prerequisites
+Storage is read only after client mount, preventing server-render storage access and authentication flashes.
 
-- Node.js 22+
-- npm 10+
+## Requirements and commands
 
-## Install and run
+Node.js 22.x and npm 10+.
 
 ```bash
 npm ci
 npm run dev
+npm run lint
+npm run typecheck
+npm test
+npm run e2e
+npm run build
+npm audit --omit=dev
 ```
 
-Open <http://localhost:3000>.
+Install Chromium once with `npx playwright install chromium` when needed.
 
-## Demo credentials
+## Demo accounts
 
-- Email: `owner@mealplanner.dev`
-- Password: `mealplanner-demo`
+All accounts use password `mealplanner-demo`:
 
-The login page displays these credentials.
+- Owner: `owner@mealplanner.dev`
+- Administrator: `admin@mealplanner.dev`
+- Member: `member@mealplanner.dev`
 
-## Mock persistence and reset
+Settings → Reset dummy data restores the deterministic dataset and clears the session.
 
-The mock repository writes app data to `localStorage` under deterministic keys. CRUD changes survive refreshes. Use **Settings → Development data → Reset seed data** to restore the original seed data and clear the simulated session.
+## Data mode and backend connection
 
-## Scripts
+No variables are required; mock mode is the default. Public (never secret) settings:
 
-```bash
-npm run lint      # ESLint
-npm test          # Vitest and React Testing Library
-npm run e2e       # Playwright smoke test
-npm run build     # Production build
-npm run start     # Serve production build
+```env
+NEXT_PUBLIC_MEAL_PLANNER_DATA_MODE=mock
+# or:
+NEXT_PUBLIC_MEAL_PLANNER_DATA_MODE=http
+NEXT_PUBLIC_MEAL_PLANNER_API_URL=https://api.example.com/api/v1
 ```
 
-If Playwright browsers are missing locally, run `npx playwright install chromium` first.
-
-## Deployment to Vercel
-
-Import the repository in Vercel and use the default Next.js settings:
-
-- Install command: `npm ci`
-- Build command: `npm run build`
-- Output: Next.js default
-
-No secrets are required for this frontend-only version. `.env.example` is included to document that state.
-
-## Future backend contract
-
-The expected FastAPI/PostgreSQL API contract is documented in [`docs/backend-integration.md`](docs/backend-integration.md). Connect the backend by replacing the mock repository implementation with an HTTP repository while keeping UI components unchanged.
+Implement the documented FastAPI/PostgreSQL contract outside this repository, configure the two HTTP values, and restart/rebuild the frontend. The HTTP adapter does not create endpoints and the backend remains responsible for auth, authorization, integrity, concurrency, and authoritative audit history.
