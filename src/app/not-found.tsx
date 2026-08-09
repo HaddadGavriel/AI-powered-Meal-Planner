@@ -1,8 +1,19 @@
 import Link from 'next/link';
-export default function NotFound() { return <main className="container-page grid min-h-screen place-items-center text-center">
-<div>
-<h1 className="text-4xl font-bold">Page not found</h1>
-<p className="mt-2 text-[rgb(var(--muted))]">The requested Meal Planner page does not exist.</p>
-<Link className="mt-5 inline-flex rounded-xl bg-[rgb(var(--primary))] px-4 py-2 font-semibold text-white dark:text-slate-950" href="/dashboard">Go to dashboard</Link>
-</div>
-</main>; }
+export default function NotFound() {
+  return (
+    <main className="container-page grid min-h-screen place-items-center text-center">
+      <div>
+        <h1 className="text-4xl font-bold">Page not found</h1>
+        <p className="mt-2 text-[rgb(var(--muted))]">
+          The requested Meal Planner page does not exist.
+        </p>
+        <Link
+          className="mt-5 inline-flex rounded-xl bg-[rgb(var(--primary))] px-4 py-2 font-semibold text-white dark:text-slate-950"
+          href="/dashboard"
+        >
+          Go to dashboard
+        </Link>
+      </div>
+    </main>
+  );
+}

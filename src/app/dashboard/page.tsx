@@ -3,23 +3,66 @@ import { AppShell } from '@/components/AppShell';
 import { ActionLink, Card, Empty, PageHeader } from '@/components/ui';
 import { useMealPlanner } from '@/data/RepositoryProvider';
 export default function Dashboard() {
-    const { data } = useMealPlanner();
-    if (!data)
-        return null;
-    const today = new Date().toISOString().slice(0, 10), plan = data.plans.find(p => today >= p.weekStartDate && today <= new Date(new Date(p.weekStartDate + 'T00:00:00Z').getTime() + 6 * 864e5).toISOString().slice(0, 10)) ?? data.plans.find(p => p.status === 'active'), meals = plan?.entries.filter(e => e.date === today) ?? [];
-    return <AppShell>
-<PageHeader eyebrow="Dashboard" title="This week at a glance" description="Coordinate recipes, shared preferences, plans, and groceries."/>
-<div className="grid gap-4 md:grid-cols-3">{[['Active ingredients', data.ingredients.filter(x => x.status === 'active').length], ['Household members', data.members.length], ['Recipes ready', data.recipes.filter(x => x.status === 'active').length]].map(([x, n]) => <Card key={x}>
-<p>{x}</p>
-<p className="mt-2 text-4xl font-bold">{n}</p>
-</Card>)}</div>
-{plan ? <div className="grid gap-4 md:grid-cols-2">
-<Card>
-<h2 className="text-xl font-semibold">Today’s meals</h2>
-{meals.length ? meals.map(m => <p key={m.id}>{m.mealType}: {data.recipes.find(r => r.id === m.recipeId)?.name ?? 'Unavailable recipe'}</p>) : <p className="mt-2 text-sm text-[rgb(var(--muted))]">No meals planned for today.</p>}</Card>
-<Card>
-<h2 className="text-xl font-semibold">Current plan</h2>
-<ActionLink className="mt-3" href={`/plans?open=${plan.id}`}>{plan.name}</ActionLink>
-</Card>
-</div> : <Empty title="No weekly plans" body="Create a plan to coordinate meals and generate groceries."/>}</AppShell>;
+  const { data } = useMealPlanner();
+  if (!data) return null;
+  const today = new Date().toISOString().slice(0, 10),
+    plan =
+      data.plans.find(
+        (p) =>
+          today >= p.weekStartDate &&
+          today <=
+            new Date(new Date(p.weekStartDate + 'T00:00:00Z').getTime() + 6 * 864e5)
+              .toISOString()
+              .slice(0, 10),
+      ) ?? data.plans.find((p) => p.status === 'active'),
+    meals = plan?.entries.filter((e) => e.date === today) ?? [];
+  return (
+    <AppShell>
+      <PageHeader
+        eyebrow="Dashboard"
+        title="This week at a glance"
+        description="Coordinate recipes, shared preferences, plans, and groceries."
+      />
+      <div className="grid gap-4 md:grid-cols-3">
+        {[
+          ['Active ingredients', data.ingredients.filter((x) => x.status === 'active').length],
+          ['Household members', data.members.length],
+          ['Recipes ready', data.recipes.filter((x) => x.status === 'active').length],
+        ].map(([x, n]) => (
+          <Card key={x}>
+            <p>{x}</p>
+            <p className="mt-2 text-4xl font-bold">{n}</p>
+          </Card>
+        ))}
+      </div>
+      {plan ? (
+        <div className="grid gap-4 md:grid-cols-2">
+          <Card>
+            <h2 className="text-xl font-semibold">Today’s meals</h2>
+            {meals.length ? (
+              meals.map((m) => (
+                <p key={m.id}>
+                  {m.mealType}:{' '}
+                  {data.recipes.find((r) => r.id === m.recipeId)?.name ?? 'Unavailable recipe'}
+                </p>
+              ))
+            ) : (
+              <p className="mt-2 text-sm text-[rgb(var(--muted))]">No meals planned for today.</p>
+            )}
+          </Card>
+          <Card>
+            <h2 className="text-xl font-semibold">Current plan</h2>
+            <ActionLink className="mt-3" href={`/plans?open=${plan.id}`}>
+              {plan.name}
+            </ActionLink>
+          </Card>
+        </div>
+      ) : (
+        <Empty
+          title="No weekly plans"
+          body="Create a plan to coordinate meals and generate groceries."
+        />
+      )}
+    </AppShell>
+  );
 }

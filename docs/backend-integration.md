@@ -34,9 +34,7 @@ Every non-success response uses:
   "error": {
     "code": "VALIDATION_ERROR",
     "message": "The request could not be saved.",
-    "details": [
-      { "field": "items.0.quantity", "message": "Must be greater than zero." }
-    ]
+    "details": [{ "field": "items.0.quantity", "message": "Must be greater than zero." }]
   }
 }
 ```
@@ -50,7 +48,8 @@ All response objects contain exactly the fields below (additional forward-compat
 - **Member**: `{id,name,email,avatarInitials,role:"owner"|"administrator"|"member",status:"active"|"inactive",joinedAt}`.
 - **Session** is client-derived from an auth envelope: `{userId,expiresAt}`.
 - **Household**: `{id,name,timezone,defaultServings,notes?,updatedAt}`.
-- **Invitation**: `{id,householdId,email,proposedRole:"administrator"|"member",invitedBy,createdAt,expiresAt,status:"pending"|"accepted"|"expired"|"revoked",token,acceptedAt?}`. A production inspection token may be represented separately, but the configured response must match the adapter.
+- **InvitationSummary**: `{id,householdId,email,proposedRole:"administrator"|"member",invitedBy,createdAt,expiresAt,status:"pending"|"accepted"|"expired"|"revoked",acceptedAt?}`. It deliberately contains no token or acceptance URL.
+- **InvitationAcceptanceLink**: `{acceptanceUrl}`. This privileged response is returned only to administrators/owners and must not be embedded in bootstrap or list responses.
 - **DietaryProfile**: `{id,memberId,dietaryPatterns:string[],allergens:string[],excludedIngredients:string[],preferences,updatedAt}`.
 - **Ingredient**: `{id,name,category,defaultUnit,allergens:string[],notes?,status:"active"|"archived",createdAt,updatedAt}`.
 - **RecipeIngredient**: `{ingredientId,quantity,unit,preparationNote?}` where quantity is positive.
@@ -67,10 +66,10 @@ All response objects contain exactly the fields below (additional forward-compat
 Collection endpoints accept `page` (default `1`), `pageSize` (default `25`, maximum `100`), `search`, `sort`, and filters listed below. They return:
 
 ```json
-{"items":[],"page":1,"pageSize":25,"totalItems":0,"totalPages":0}
+{ "items": [], "page": 1, "pageSize": 25, "totalItems": 0, "totalPages": 0 }
 ```
 
-The current adapter uses the aggregate `/bootstrap` for its UI collections. Paginated endpoints remain required for incremental backend adoption and direct detail screens. `/bootstrap` must return the complete Stage 0 household dataset until the provider migrates to individual paginated reads.
+The current adapter uses the aggregate `/bootstrap` for its UI collections. Paginated endpoints remain required for incremental backend adoption and direct detail screens. `/bootstrap` returns the Stage 0 household dataset using token-free `InvitationSummary` records. It must never include invitation tokens or acceptance URLs. Ordinary members may receive summaries for shared status context, but the frontend hides invitation management; a backend may additionally return an empty invitation-summary array for members.
 
 ## Exact repository mapping
 
@@ -90,12 +89,13 @@ The current adapter uses the aggregate `/bootstrap` for its UI collections. Pagi
 
 ### Invitations
 
-- `POST /household/invitations`, body `{"email":"new@example.com","proposedRole":"member"}` → `201 Invitation`; administrator/owner. `409 DUPLICATE` for an active member or pending invitation.
-- `POST /household/invitations/{id}/resend` → `200 Invitation`; rotates token and extends expiry; administrator/owner.
+- `POST /household/invitations`, body `{"email":"new@example.com","proposedRole":"member"}` → `201 InvitationSummary`; administrator/owner. `409 DUPLICATE` for an active member or pending invitation.
+- `POST /household/invitations/{id}/resend` → `200 InvitationSummary`; rotates the server-held token and extends expiry; administrator/owner.
 - `DELETE /household/invitations/{id}` → `204`; transitions pending to revoked; administrator/owner.
-- `GET /invitations/{token}` → `200 Invitation`; public, rate-limited. Return `200` with accepted/revoked/expired status so the UI can explain it; `404` only for unknown token.
-- `POST /invitations/{token}/accept`, body `{"name":"New Person"}` → `200 Member`; public, rate-limited, consumes token transactionally. Errors `409 DUPLICATE`, `410 INVITATION_UNAVAILABLE`, `422`.
-- `GET /household/invitations?page=1&pageSize=25&status=pending&search=...` → paginated Invitations; administrator/owner.
+- `POST /household/invitations/{id}/acceptance-link` → `200 {"acceptanceUrl":"https://app.example/invite/opaque-token"}`; administrator/owner only. This is the sole authenticated operation that reveals an acceptance capability.
+- `GET /invitations/{token}` → `200 InvitationSummary`; public, rate-limited. Return `200` with accepted/revoked/expired status so the UI can explain it; `404` only for unknown token.
+- `POST /invitations/{token}/accept`, body `{"name":"New Person","password":"at-least-8-characters"}` → `200` auth envelope and sets the secure HTTP-only refresh cookie. It creates the user and membership, consumes the token, establishes the session, and permits later email/password sign-in. Public and rate-limited. Errors `404` invalid token, `409 DUPLICATE`, `410 INVITATION_UNAVAILABLE` for expired/revoked/accepted, and `422` for name/password validation.
+- `GET /household/invitations?page=1&pageSize=25&status=pending&search=...` → paginated InvitationSummary records; administrator/owner.
 
 ### Ingredients
 
@@ -103,7 +103,7 @@ The current adapter uses the aggregate `/bootstrap` for its UI collections. Pagi
 - `PATCH /ingredients/{id}`, partial mutable body → `200 Ingredient`.
 - `DELETE /ingredients/{id}` → `204`; `409 REFERENCED` if any recipe uses it.
 - `GET /ingredients?page=1&pageSize=25&search=...&category=Produce&status=active` → paginated Ingredients.
-Reads allow members; mutations require administrator/owner. Names are unique case-insensitively per household.
+  Reads allow members; mutations require administrator/owner. Names are unique case-insensitively per household.
 
 ### Recipes
 
@@ -111,7 +111,7 @@ Reads allow members; mutations require administrator/owner. Names are unique cas
 - `PATCH /recipes/{id}`, partial mutable body → `200 Recipe`.
 - `DELETE /recipes/{id}` → `204`; `409 REFERENCED` if a plan entry uses it.
 - `GET /recipes?page=1&pageSize=25&search=...&cuisine=Italian&mealType=dinner&tag=quick&status=active` → paginated Recipes.
-Every ingredient ID must exist; at least one positive row and instruction are required. Reads allow members; mutations require administrator/owner.
+  Every ingredient ID must exist; at least one positive row and instruction are required. Reads allow members; mutations require administrator/owner.
 
 ### Weekly plans and meal entries
 
@@ -122,7 +122,7 @@ Every ingredient ID must exist; at least one positive row and instruction are re
 - `PATCH /meal-plans/{id}/entries/{entryId}`, body with entry ID accepted but path authoritative → `200 WeeklyMealPlan`.
 - `DELETE /meal-plans/{id}/entries/{entryId}` → `200 WeeklyMealPlan` (the adapter expects the resulting plan, not `204`).
 - `GET /meal-plans?page=1&pageSize=25&weekStartDate=...&status=active` → paginated plans.
-Reads allow members; all mutations require administrator/owner. Entry dates must be in-week and recipes must exist.
+  Reads allow members; all mutations require administrator/owner. Entry dates must be in-week and recipes must exist.
 
 ### Shopping lists
 
@@ -130,7 +130,7 @@ Reads allow members; all mutations require administrator/owner. Entry dates must
 - `PATCH /shopping-lists/{id}`, body is a partial ShoppingList (currently item replacement) → `200 ShoppingList`.
 - `DELETE /shopping-lists/{id}/checked` → `200 ShoppingList` after removal.
 - `GET /shopping-lists?page=1&pageSize=25&planId=...` → paginated ShoppingLists.
-Reads allow members; mutations require administrator/owner. All quantities are positive and units nonempty. Generation scales by `entry.servingCount / recipe.servings`, combines only ingredient plus normalized unit, performs no conversion, preserves manual items, and preserves safely matched generated checked state.
+  Reads allow members; mutations require administrator/owner. All quantities are positive and units nonempty. Generation scales by `entry.servingCount / recipe.servings`, combines only ingredient plus normalized unit, performs no conversion, preserves manual items, and preserves safely matched generated checked state.
 
 ### Audit reads
 

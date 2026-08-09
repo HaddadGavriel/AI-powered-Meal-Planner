@@ -1,34 +1,89 @@
 'use client';
 import { use, useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { Button, Card, Field } from '@/components/ui';
 import { useMealPlanner } from '@/data/RepositoryProvider';
 import type { Invitation } from '@/lib/types';
-import { Button, Card, Field } from '@/components/ui';
-export default function Accept({ params }: {
-    params: Promise<{
-        token: string;
-    }>;
+export default function AcceptInvitation({
+  params,
+}: {
+  params: Promise<{
+    token: string;
+  }>;
 }) {
-    const { token } = use(params), { repo } = useMealPlanner(), [inv, setInv] = useState<Invitation | null>(null), [error, setError] = useState(''), [name, setName] = useState(''), [accepted, setAccepted] = useState(false);
-    useEffect(() => { repo.inspectInvitation(token).then(setInv).catch(e => setError(e.message)); }, [repo, token]);
-    return <main className="container-page grid min-h-screen place-items-center">
-<Card className="max-w-lg">
-<h1 className="text-2xl font-bold">Invitation preview</h1>
-{error && <p role="alert">{error}</p>}{inv && <>
-<p>{inv.email} was invited as {inv.proposedRole}.</p>
-{inv.status !== 'pending' ? <p>This invitation is {inv.status} and cannot be used.</p> : accepted ? <p>Invitation accepted. The offer is now used and the person is an active member.</p> : <form onSubmit={async (e) => {
-                    e.preventDefault();
-                    try {
-                        await repo.acceptInvitation(token, name);
-                        setAccepted(true);
-                    }
-                    catch (x) {
-                        setError(x instanceof Error ? x.message : 'Unable to accept');
-                    }
-                }}>
-<Field required label="Display name" value={name} onChange={e => setName(e.target.value)}/>
-<Button className="mt-3">Accept invitation</Button>
-</form>}</>}<Link className="mt-4 block underline" href="/household">Back to household</Link>
-</Card>
-</main>;
+  const { token } = use(params);
+  const { repo } = useMealPlanner();
+  const router = useRouter();
+  const [invitation, setInvitation] = useState<Invitation | null>(null);
+  const [error, setError] = useState('');
+  const [name, setName] = useState('');
+  const [password, setPassword] = useState('');
+  useEffect(() => {
+    repo
+      .inspectInvitation(token)
+      .then(setInvitation)
+      .catch((caught) => {
+        setError(caught instanceof Error ? caught.message : 'Invitation not found.');
+      });
+  }, [repo, token]);
+  return (
+    <main className="container-page grid min-h-screen place-items-center">
+      <Card className="w-full max-w-lg">
+        <h1 className="text-2xl font-bold">Join the household</h1>
+        {error && (
+          <p role="alert" className="mt-3 text-red-700">
+            {error}
+          </p>
+        )}
+        {invitation && (
+          <>
+            <p className="mt-3">
+              {invitation.email} was invited as {invitation.proposedRole}.
+            </p>
+            {invitation.status !== 'pending' ? (
+              <p className="mt-3">This invitation is {invitation.status} and cannot be used.</p>
+            ) : (
+              <form
+                className="mt-4 space-y-3"
+                onSubmit={async (event) => {
+                  event.preventDefault();
+                  setError('');
+                  try {
+                    await repo.acceptInvitation(token, name, password);
+                    router.push('/dashboard');
+                  } catch (caught) {
+                    setError(
+                      caught instanceof Error ? caught.message : 'Unable to accept invitation.',
+                    );
+                  }
+                }}
+              >
+                <Field
+                  required
+                  label="Display name"
+                  value={name}
+                  onChange={(event) => setName(event.target.value)}
+                />
+                <Field
+                  required
+                  label="Create password"
+                  type="password"
+                  minLength={8}
+                  autoComplete="new-password"
+                  description="Use at least 8 characters. Sign in later with the invited email and this password."
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                />
+                <Button>Accept invitation and sign in</Button>
+              </form>
+            )}
+          </>
+        )}
+        <Link className="mt-4 block underline" href="/login">
+          Go to sign in
+        </Link>
+      </Card>
+    </main>
+  );
 }
