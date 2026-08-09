@@ -28,3 +28,9 @@ Important sign-in, profile, household, invitation, member, ingredient, recipe, p
 
 ## Dummy data, reset, and provisional behavior
 Versioned seed data supplies three roles and coherent relationships. Valid changes persist across refreshes. Invalid/corrupt storage is backed up under a timestamped key then reset; Settings reset restores seeds and signs out. Local tokens, sessions, audit timestamps, role checks, pagination-free bootstrap loading, conflict detection, and destructive confirmations are provisional until the backend provides secure equivalents, concurrency, delivery, retention, and transactional integrity.
+
+## HTTP-mode behavior
+HTTP mode keeps its short-lived access token only in memory, refreshes through a secure HTTP-only cookie before protected bootstrap, and validates every response. Public invitation inspection and acceptance do not bootstrap an authenticated household. Mock-only reset controls and recovery guidance are hidden in HTTP mode.
+
+## Mutation safety and confirmations
+Administrators cannot manage owners; only owners can do so. Members see read-only shopping quantities and have no mutation controls. Shopping editors retain transient input locally and persist only positive quantities with nonempty units. Ingredient, recipe, plan, and member deletion requires confirmation. All repository mutations validate a complete candidate and its relationships before committing, so a rejected operation leaves prior data intact.

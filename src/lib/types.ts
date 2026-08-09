@@ -1,6 +1,5 @@
 import type { z } from 'zod';
 import type { appDataSchema, auditEventSchema, dietaryProfileSchema, householdSchema, ingredientSchema, invitationSchema, memberSchema, recipeSchema, sessionSchema, shoppingListSchema, userSchema, weeklyMealPlanSchema } from './schemas';
-
 export type Role = 'owner' | 'administrator' | 'member';
 export type User = z.infer<typeof userSchema>;
 export type Session = z.infer<typeof sessionSchema>;
@@ -12,6 +11,7 @@ export type Ingredient = z.infer<typeof ingredientSchema>;
 export type Recipe = z.infer<typeof recipeSchema>;
 export type WeeklyMealPlan = z.infer<typeof weeklyMealPlanSchema>;
 export type ShoppingList = z.infer<typeof shoppingListSchema>;
+export type ShoppingListItem = ShoppingList['items'][number];
 export type AuditEvent = z.infer<typeof auditEventSchema>;
 export type AppData = z.infer<typeof appDataSchema>;
 export type MealEntry = WeeklyMealPlan['entries'][number];

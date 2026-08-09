@@ -1,33 +1,80 @@
 import type { AppData, Ingredient, Recipe } from '@/lib/types';
 export const DEMO_PASSWORD = 'mealplanner-demo';
 export const DEMO_ACCOUNTS = [
-  { email: 'owner@mealplanner.dev', role: 'owner' },
-  { email: 'admin@mealplanner.dev', role: 'administrator' },
-  { email: 'member@mealplanner.dev', role: 'member' },
+    { email: 'owner@mealplanner.dev', role: 'owner' },
+    { email: 'admin@mealplanner.dev', role: 'administrator' },
+    { email: 'member@mealplanner.dev', role: 'member' },
 ] as const;
 const now = '2026-08-03T12:00:00.000Z';
 const ingredientRows = [
-  ['onion','Onion','Produce','pieces',[]],['garlic','Garlic','Produce','cloves',[]],['tomato','Tomato','Produce','cups',[]],['chicken','Chicken breast','Meat and poultry','lb',[]],['salmon','Salmon','Seafood','fillets',['fish']],['egg','Egg','Dairy','eggs',['egg']],['milk','Milk','Dairy','cups',['milk']],['rice','Rice','Grains','cups',[]],['pasta','Pasta','Grains','oz',['wheat']],['beans','Black beans','Legumes','cups',[]],['oil','Olive oil','Condiments','tbsp',[]],['soy','Soy sauce','Condiments','tbsp',['soy','wheat']],['spinach','Spinach','Produce','cups',[]],['oats','Oats','Grains','cups',[]],['pepper','Bell pepper','Produce','pieces',[]],['tortilla','Tortilla','Grains','pieces',['wheat']]
+    ['onion', 'Onion', 'Produce', 'pieces', []],
+    ['garlic', 'Garlic', 'Produce', 'cloves', []],
+    ['tomato', 'Tomato', 'Produce', 'cups', []],
+    ['chicken', 'Chicken breast', 'Meat and poultry', 'lb', []],
+    ['salmon', 'Salmon', 'Seafood', 'fillets', ['fish']],
+    ['egg', 'Egg', 'Dairy', 'eggs', ['egg']],
+    ['milk', 'Milk', 'Dairy', 'cups', ['milk']],
+    ['rice', 'Rice', 'Grains', 'cups', []],
+    ['pasta', 'Pasta', 'Grains', 'oz', ['wheat']],
+    ['beans', 'Black beans', 'Legumes', 'cups', []],
+    ['oil', 'Olive oil', 'Condiments', 'tbsp', []],
+    ['soy', 'Soy sauce', 'Condiments', 'tbsp', ['soy', 'wheat']],
+    ['spinach', 'Spinach', 'Produce', 'cups', []],
+    ['oats', 'Oats', 'Grains', 'cups', []],
+    ['pepper', 'Bell pepper', 'Produce', 'pieces', []],
+    ['tortilla', 'Tortilla', 'Grains', 'pieces', ['wheat']],
 ] as const;
-const ingredients: Ingredient[] = ingredientRows.map(([slug,name,category,defaultUnit,allergens]) => ({ id:`ing-${slug}`, name, category, defaultUnit, allergens:[...allergens], notes:'Seeded pantry ingredient', status:'active', createdAt:now, updatedAt:now }));
+const ingredients: Ingredient[] = ingredientRows.map(([slug, name, category, defaultUnit, allergens]) => ({
+    id: `ing-${slug}`, name, category, defaultUnit, allergens: [...allergens],
+    notes: 'Seeded pantry ingredient', status: 'active', createdAt: now, updatedAt: now,
+}));
 const recipes: Recipe[] = [
- {id:'rec-pasta',name:'Tomato Garlic Pasta',description:'Comforting pasta with tomato and garlic sauce.',prepTimeMinutes:10,cookTimeMinutes:25,servings:4,difficulty:'easy',cuisine:'Italian',mealTypes:['dinner'],tags:['vegetarian'],status:'active',imageUrl:'',ingredients:[{ingredientId:'ing-pasta',quantity:12,unit:'oz'},{ingredientId:'ing-tomato',quantity:2,unit:'cups'},{ingredientId:'ing-garlic',quantity:3,unit:'cloves'}],instructions:['Boil the pasta.','Simmer the sauce.','Toss together and serve.'],createdAt:now,updatedAt:now},
- {id:'rec-tacos',name:'Chicken Black Bean Tacos',description:'Weeknight tacos with seasoned chicken and beans.',prepTimeMinutes:15,cookTimeMinutes:20,servings:4,difficulty:'easy',cuisine:'Mexican',mealTypes:['dinner'],tags:['family'],status:'active',imageUrl:'',ingredients:[{ingredientId:'ing-chicken',quantity:1.5,unit:'lb'},{ingredientId:'ing-beans',quantity:1,unit:'cups'},{ingredientId:'ing-tortilla',quantity:8,unit:'pieces'}],instructions:['Season and cook chicken.','Warm tortillas.','Assemble tacos.'],createdAt:now,updatedAt:now}
+    {
+        id: 'rec-pasta', name: 'Tomato Garlic Pasta',
+        description: 'Comforting pasta with tomato and garlic sauce.', prepTimeMinutes: 10,
+        cookTimeMinutes: 25, servings: 4, difficulty: 'easy', cuisine: 'Italian',
+        mealTypes: ['dinner'], tags: ['vegetarian'], status: 'active', imageUrl: '',
+        ingredients: [
+            { ingredientId: 'ing-pasta', quantity: 12, unit: 'oz' },
+            { ingredientId: 'ing-tomato', quantity: 2, unit: 'cups' },
+            { ingredientId: 'ing-garlic', quantity: 3, unit: 'cloves' },
+        ],
+        instructions: ['Boil the pasta.', 'Simmer the sauce.', 'Toss together and serve.'],
+        createdAt: now, updatedAt: now,
+    },
+    {
+        id: 'rec-tacos', name: 'Chicken Black Bean Tacos',
+        description: 'Weeknight tacos with seasoned chicken and beans.', prepTimeMinutes: 15,
+        cookTimeMinutes: 20, servings: 4, difficulty: 'easy', cuisine: 'Mexican',
+        mealTypes: ['dinner'], tags: ['family'], status: 'active', imageUrl: '',
+        ingredients: [
+            { ingredientId: 'ing-chicken', quantity: 1.5, unit: 'lb' },
+            { ingredientId: 'ing-beans', quantity: 1, unit: 'cups' },
+            { ingredientId: 'ing-tortilla', quantity: 8, unit: 'pieces' },
+        ],
+        instructions: ['Season and cook chicken.', 'Warm tortillas.', 'Assemble tacos.'],
+        createdAt: now, updatedAt: now,
+    },
 ];
-export const seedData: AppData = {
- version:2,
- household:{id:'hh-green-table',name:'Green Table Household',timezone:'America/New_York',defaultServings:4,notes:'Frontend-only demo household.',updatedAt:now},
- members:[
-  {id:'user-owner',name:'Avery Stone',email:'owner@mealplanner.dev',avatarInitials:'AS',role:'owner',status:'active',joinedAt:now},
-  {id:'user-admin',name:'Morgan Lee',email:'admin@mealplanner.dev',avatarInitials:'ML',role:'administrator',status:'active',joinedAt:now},
-  {id:'user-member',name:'Jamie Rivera',email:'member@mealplanner.dev',avatarInitials:'JR',role:'member',status:'active',joinedAt:now}],
- invitations:[{id:'inv-casey',householdId:'hh-green-table',email:'casey@example.com',proposedRole:'member',invitedBy:'user-owner',createdAt:now,expiresAt:'2026-08-17T12:00:00.000Z',status:'pending',token:'demo-casey-token'}],
- dietaryProfiles:[
-  {id:'diet-owner',memberId:'user-owner',dietaryPatterns:['flexitarian'],allergens:[],excludedIngredients:['olives'],preferences:'Quick weekday dinners.',updatedAt:now},
-  {id:'diet-admin',memberId:'user-admin',dietaryPatterns:['vegetarian'],allergens:['fish'],excludedIngredients:[],preferences:'Likes spicy food.',updatedAt:now},
-  {id:'diet-member',memberId:'user-member',dietaryPatterns:[],allergens:['milk'],excludedIngredients:['onion'],preferences:'User-supplied preferences only.',updatedAt:now}],
- ingredients, recipes,
- plans:[{id:'plan-current',householdId:'hh-green-table',name:'First week of August',weekStartDate:'2026-08-03',status:'active',notes:'Balanced family favorites.',createdAt:now,updatedAt:now,entries:[{id:'meal-1',date:'2026-08-03',mealType:'dinner',recipeId:'rec-pasta',servingCount:4},{id:'meal-2',date:'2026-08-05',mealType:'dinner',recipeId:'rec-tacos',servingCount:6}]}],
- shoppingLists:[{id:'list-current',householdId:'hh-green-table',planId:'plan-current',name:'First week groceries',createdAt:now,updatedAt:now,items:[{id:'shop-pasta',ingredientId:'ing-pasta',name:'Pasta',category:'Grains',quantity:12,unit:'oz',checked:false,source:'generated'},{id:'shop-bananas',name:'Bananas',category:'Produce',quantity:6,unit:'pieces',checked:true,source:'manual'}]}],
- auditEvents:[{id:'audit-seed',actorId:'user-owner',action:'seed.created',entityType:'household',entityId:'hh-green-table',timestamp:now,summary:'Created deterministic demo household.'}]
-};
+export function createSeedData(referenceTime = Date.now()): AppData {
+    return {
+        version: 2,
+        household: { id: 'hh-green-table', name: 'Green Table Household', timezone: 'America/New_York', defaultServings: 4, notes: 'Frontend-only demo household.', updatedAt: now },
+        members: [
+            { id: 'user-owner', name: 'Avery Stone', email: 'owner@mealplanner.dev', avatarInitials: 'AS', role: 'owner', status: 'active', joinedAt: now },
+            { id: 'user-admin', name: 'Morgan Lee', email: 'admin@mealplanner.dev', avatarInitials: 'ML', role: 'administrator', status: 'active', joinedAt: now },
+            { id: 'user-member', name: 'Jamie Rivera', email: 'member@mealplanner.dev', avatarInitials: 'JR', role: 'member', status: 'active', joinedAt: now }
+        ],
+        invitations: [{ id: 'inv-casey', householdId: 'hh-green-table', email: 'casey@example.com', proposedRole: 'member', invitedBy: 'user-owner', createdAt: new Date(referenceTime).toISOString(), expiresAt: new Date(referenceTime + 7 * 86400000).toISOString(), status: 'pending', token: 'demo-casey-token' }],
+        dietaryProfiles: [
+            { id: 'diet-owner', memberId: 'user-owner', dietaryPatterns: ['flexitarian'], allergens: [], excludedIngredients: ['olives'], preferences: 'Quick weekday dinners.', updatedAt: now },
+            { id: 'diet-admin', memberId: 'user-admin', dietaryPatterns: ['vegetarian'], allergens: ['fish'], excludedIngredients: [], preferences: 'Likes spicy food.', updatedAt: now },
+            { id: 'diet-member', memberId: 'user-member', dietaryPatterns: [], allergens: ['milk'], excludedIngredients: ['onion'], preferences: 'User-supplied preferences only.', updatedAt: now }
+        ],
+        ingredients, recipes,
+        plans: [{ id: 'plan-current', householdId: 'hh-green-table', name: 'First week of August', weekStartDate: '2026-08-03', status: 'active', notes: 'Balanced family favorites.', createdAt: now, updatedAt: now, entries: [{ id: 'meal-1', date: '2026-08-03', mealType: 'dinner', recipeId: 'rec-pasta', servingCount: 4 }, { id: 'meal-2', date: '2026-08-05', mealType: 'dinner', recipeId: 'rec-tacos', servingCount: 6 }] }],
+        shoppingLists: [{ id: 'list-current', householdId: 'hh-green-table', planId: 'plan-current', name: 'First week groceries', createdAt: now, updatedAt: now, items: [{ id: 'shop-pasta', ingredientId: 'ing-pasta', name: 'Pasta', category: 'Grains', quantity: 12, unit: 'oz', checked: false, source: 'generated' }, { id: 'shop-bananas', name: 'Bananas', category: 'Produce', quantity: 6, unit: 'pieces', checked: true, source: 'manual' }] }],
+        auditEvents: [{ id: 'audit-seed', actorId: 'user-owner', action: 'seed.created', entityType: 'household', entityId: 'hh-green-table', timestamp: now, summary: 'Created deterministic demo household.' }]
+    };
+}
+export const seedData = createSeedData();

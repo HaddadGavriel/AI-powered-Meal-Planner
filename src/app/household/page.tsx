@@ -1,2 +1,71 @@
-'use client';import { useState } from 'react';import Link from 'next/link';import { AppShell } from '@/components/AppShell';import { Badge,Button,Card,Field,Select } from '@/components/ui';import { useMealPlanner } from '@/data/RepositoryProvider';
-export default function Household(){const {data,user,repo,run}=useMealPlanner(),[email,setEmail]=useState(''),[role,setRole]=useState<'member'|'administrator'>('member');if(!data)return null;const can=user?.role!=='member';return <AppShell><h1 className="text-3xl font-bold">{data.household.name}</h1><Card><h2 className="text-xl font-semibold">Members</h2>{data.members.map(m=><div className="flex flex-wrap items-center gap-3 border-b py-3" key={m.id}><span className="flex-1">{m.name} · {m.email}</span><Badge>{m.role}</Badge>{can&&m.id!==user?.id&&<><Select aria-label={`Role for ${m.name}`} label="Role" value={m.role} onChange={e=>run(()=>repo.changeRole(m.id,e.target.value as typeof m.role),'Role updated.')}><option>member</option><option>administrator</option>{user?.role==='owner'&&<option>owner</option>}</Select><Button variant="destructive" onClick={()=>run(()=>repo.removeMember(m.id),'Member removed.')}>Remove</Button></>}</div>)}</Card><Card><h2 className="text-xl font-semibold">Invitations</h2><p className="text-sm text-[rgb(var(--muted))]">No email is sent. Preview the single-use acceptance flow safely.</p>{can&&<form className="my-3 flex gap-2" onSubmit={async e=>{e.preventDefault();const x=await run(()=>repo.invite(email,role),'Invitation created.');if(x)setEmail('')}}><Field required type="email" label="Email" value={email} onChange={e=>setEmail(e.target.value)}/><Select label="Proposed role" value={role} onChange={e=>setRole(e.target.value as typeof role)}><option>member</option><option>administrator</option></Select><Button className="self-end">Invite</Button></form>}{data.invitations.map(i=><div className="flex flex-wrap items-center gap-2 border-b py-2" key={i.id}><span className="flex-1">{i.email} · {i.proposedRole}</span><Badge>{i.status}</Badge>{i.status==='pending'&&<><Link className="underline" href={`/invite/${i.token}`}>Preview acceptance flow</Link>{can&&<><Button variant="secondary" onClick={()=>run(()=>repo.resendInvitation(i.id),'Invitation resent with a new token.')}>Resend</Button><Button variant="destructive" onClick={()=>run(()=>repo.revokeInvitation(i.id),'Invitation revoked.')}>Revoke</Button></>}</>}</div>)}</Card></AppShell>}
+'use client';
+import { useState } from 'react';
+import Link from 'next/link';
+import { AppShell } from '@/components/AppShell';
+import { Badge, Button, Card, Field, Select } from '@/components/ui';
+import { useMealPlanner } from '@/data/RepositoryProvider';
+export default function Household() {
+    const { data, user, repo, run } = useMealPlanner();
+    const [email, setEmail] = useState('');
+    const [role, setRole] = useState<'member' | 'administrator'>('member');
+    if (!data)
+        return null;
+    const canManage = user?.role !== 'member';
+    return (<AppShell>
+      <h1 className="text-3xl font-bold">{data.household.name}</h1>
+      <Card>
+        <h2 className="text-xl font-semibold">Members</h2>
+        {data.members.map((member) => {
+            const canManageMember = canManage
+                && member.id !== user?.id
+                && (member.role !== 'owner' || user?.role === 'owner');
+            return (<div className="flex flex-wrap items-center gap-3 border-b py-3" key={member.id}>
+              <span className="flex-1">{member.name} · {member.email}</span>
+              <Badge>{member.role}</Badge>
+              {canManageMember && (<>
+                  <Select aria-label={`Role for ${member.name}`} label="Role" value={member.role} onChange={(event) => run(() => repo.changeRole(member.id, event.target.value as typeof member.role), 'Role updated.')}>
+                    <option>member</option>
+                    <option>administrator</option>
+                    {user?.role === 'owner' && <option>owner</option>}
+                  </Select>
+                  <Button variant="destructive" onClick={() => {
+                        if (window.confirm(`Remove ${member.name} from the household?`)) {
+                            void run(() => repo.removeMember(member.id), 'Member removed.');
+                        }
+                    }}>
+                    Remove
+                  </Button>
+                </>)}
+            </div>);
+        })}
+      </Card>
+      <Card>
+        <h2 className="text-xl font-semibold">Invitations</h2>
+        <p className="text-sm text-[rgb(var(--muted))]">No email is sent. Preview the single-use acceptance flow safely.</p>
+        {canManage && (<form className="my-3 flex gap-2" onSubmit={async (event) => {
+                event.preventDefault();
+                const invitation = await run(() => repo.invite(email, role), 'Invitation created.');
+                if (invitation)
+                    setEmail('');
+            }}>
+            <Field required type="email" label="Email" value={email} onChange={(event) => setEmail(event.target.value)}/>
+            <Select label="Proposed role" value={role} onChange={(event) => setRole(event.target.value as typeof role)}>
+              <option>member</option>
+<option>administrator</option>
+            </Select>
+            <Button className="self-end">Invite</Button>
+          </form>)}
+        {data.invitations.map((invitation) => (<div className="flex flex-wrap items-center gap-2 border-b py-2" key={invitation.id}>
+            <span className="flex-1">{invitation.email} · {invitation.proposedRole}</span>
+            <Badge>{invitation.status}</Badge>
+            {invitation.status === 'pending' && (<>
+                <Link className="underline" href={`/invite/${invitation.token}`}>Preview acceptance flow</Link>
+                {canManage && (<>
+                    <Button variant="secondary" onClick={() => run(() => repo.resendInvitation(invitation.id), 'Invitation resent with a new token.')}>Resend</Button>
+                    <Button variant="destructive" onClick={() => run(() => repo.revokeInvitation(invitation.id), 'Invitation revoked.')}>Revoke</Button>
+                  </>)}
+              </>)}
+          </div>))}
+      </Card>
+    </AppShell>);
+}

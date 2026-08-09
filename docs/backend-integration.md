@@ -1,47 +1,142 @@
 # Backend integration contract
 
-The frontend defaults to validated localStorage and implements no server endpoint. A future FastAPI/PostgreSQL service is selected with `NEXT_PUBLIC_MEAL_PLANNER_DATA_MODE=http` and `NEXT_PUBLIC_MEAL_PLANNER_API_URL`. Types correspond to the Zod schemas in `src/lib/schemas.ts`.
+The frontend implements no API routes or server actions. `HttpMealPlannerRepository` connects to the future FastAPI service when `NEXT_PUBLIC_MEAL_PLANNER_DATA_MODE=http`; `NEXT_PUBLIC_MEAL_PLANNER_API_URL` defaults to `/api/v1`. This document is normative and matches `src/data/repository.ts`.
 
-## Conventions, auth, pagination, and errors
-Base path is `/api/v1`; opaque IDs are strings, calendar dates `YYYY-MM-DD`, timestamps UTC ISO 8601. Protected requests use bearer authentication (refresh credentials in secure HTTP-only cookies). The backend reauthorizes every request; frontend role checks are UX only.
+## Authentication lifecycle
 
-List requests accept `page` (default 1), `pageSize` (default 25, maximum 100), `search`, `sort`, and stated filters. Responses are `{items,page,pageSize,totalItems,totalPages}`. Mutations return the full schema unless `204` is stated. Resources expose `updatedAt` and preferably a version/ETag; clients send `If-Match`, stale writes return `409 CONFLICT` and never silently overwrite.
+The backend issues a short-lived bearer access token and a longer-lived, rotated refresh credential in a `Secure`, `HttpOnly`, `SameSite` cookie. The frontend holds the access token **in memory only** and sends `credentials: include` so the browser can send the refresh cookie. It never stores either token in localStorage.
 
-Errors are `{error:{code,message,details:[{field,message}]}}`. Use `400` malformed request, `401` absent/expired auth, `403` role/household denial, `404`, `409` duplicate/reference/only-owner/concurrency conflicts, `410` expired/revoked/used invitations, `422` field validation, and `429`. Delete is `204`; archive/restore is a PATCH status change. Transactionally reject dangling references.
+1. `POST /auth/login` is public. Body: `{"email":"owner@example.com","password":"secret"}`.
+2. Success `200` returns an auth envelope: `{"accessToken":"opaque-or-jwt","expiresAt":"2030-01-01T12:15:00.000Z","user":<Member>}` and sets/rotates the refresh cookie.
+3. On startup, `POST /auth/refresh` is attempted before any protected `/bootstrap` request. It has no body, is public with respect to bearer auth, uses the refresh cookie, and returns the same auth envelope.
+4. Protected requests contain `Authorization: Bearer <accessToken>`.
+5. A protected `401` triggers one refresh and one retry. A failed refresh clears in-memory auth and requires sign-in.
+6. `POST /auth/logout` is protected, returns `204`, revokes the refresh credential, and expires its cookie.
+
+Statuses: login `200/401/422/429`; refresh `200/401/429`; logout `204/401`. Public invitation inspection and acceptance never trigger refresh or `/bootstrap`.
+
+## Shared wire rules
+
+- Base path: `/api/v1` unless configured otherwise.
+- IDs are opaque nonempty strings. Dates are `YYYY-MM-DD`; timestamps are UTC ISO 8601.
+- JSON requests use `Content-Type: application/json`. Every successful JSON response is runtime-validated by Zod. Schema mismatches become client error `INVALID_RESPONSE`.
+- `204` responses contain no body. The adapter accepts `204` only for methods documented as returning `void`; a `204` where an object is required is invalid.
+- PATCH bodies include only changed mutable fields. Server-owned IDs and timestamps are ignored/rejected.
+- All protected resources are household-scoped. Frontend role controls are UX only; the backend authenticates and authorizes every request.
+- Mutable resources should return `ETag` or a version alongside `updatedAt`. A later client may send `If-Match`; stale writes return `409 CONFLICT` and never overwrite silently.
+
+## Errors
+
+Every non-success response uses:
+
+```json
+{
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "The request could not be saved.",
+    "details": [
+      { "field": "items.0.quantity", "message": "Must be greater than zero." }
+    ]
+  }
+}
+```
+
+The adapter preserves `code`, `message`, field details, and HTTP status. Use `400` malformed JSON, `401` missing/expired auth, `403` forbidden role/household, `404` unknown record, `409` duplicate/reference/only-owner/concurrency conflict, `410` expired/revoked/used invitation, `422` validation, and `429` rate limiting.
 
 ## Schemas
-- `User`: `{id,name,email,avatarInitials}`; `Member` adds `{role: owner|administrator|member,status: active|inactive,joinedAt}`.
-- `Session`: `{userId,expiresAt}` (login additionally returns access token in production).
-- `Household`: `{id,name,timezone,defaultServings,notes?,updatedAt}`.
-- `Invitation`: `{id,householdId,email,proposedRole: administrator|member,invitedBy,createdAt,expiresAt,status: pending|accepted|expired|revoked,token,acceptedAt?}`. Production may return the token only on safe inspection/delivery channels.
-- `DietaryProfile`: `{id,memberId,dietaryPatterns[],allergens[],excludedIngredients[],preferences,updatedAt}`.
-- `Ingredient`: `{id,name,category,defaultUnit,allergens[],notes?,status,createdAt,updatedAt}`.
-- `RecipeIngredient`: `{ingredientId,quantity>0,unit,preparationNote?}`; `Recipe`: `{id,name,description,prepTimeMinutes,cookTimeMinutes,servings,difficulty,cuisine,mealTypes[],tags[],status,imageUrl?,ingredients[],instructions[],createdAt,updatedAt}`.
-- `MealEntry`: `{id,date,mealType,recipeId,servingCount>0,notes?}`; `WeeklyMealPlan`: `{id,householdId,name,weekStartDate,status,notes?,entries[],createdAt,updatedAt}`.
-- `ShoppingListItem`: `{id,ingredientId?,name,category,quantity>0,unit,checked,source: generated|manual}`; `ShoppingList`: `{id,householdId,planId,name,items[],createdAt,updatedAt}`.
-- `AuditEvent`: `{id,actorId?,action,entityType,entityId,timestamp,summary}`.
 
-Create/PATCH bodies omit server IDs/timestamps; PATCH fields are optional. All response bodies validate against these shapes.
+All response objects contain exactly the fields below (additional forward-compatible fields may be accepted only after schemas are updated).
 
-## Operations and requirements
-| Method and path | Purpose | Required role |
-|---|---|---|
-| `POST /auth/login`, `/auth/logout`, `/auth/refresh`; `GET /auth/session` | session lifecycle | public / any |
-| `GET/PATCH /users/me` | read/update name and email | any |
-| `GET/PATCH /household` | read/update household | any / admin |
-| `GET /household/members`; `PATCH/DELETE /household/members/{id}` | list/change role/remove | any / admin; owner changes owner |
-| `GET/PUT /household/members/{id}/dietary-profile` | read/update dietary profile | any; self or admin policy |
-| `GET/POST /household/invitations` | paginate/create pending offers | admin |
-| `POST /household/invitations/{id}/resend`; `DELETE .../{id}` | rotate token / revoke | admin |
-| `GET /invitations/{token}`; `POST /invitations/{token}/accept` | public inspection/consume with `{name}` | public, rate-limited |
-| `GET/POST /ingredients`; `GET/PATCH/DELETE /ingredients/{id}` | CRUD, filters `category,status` | read any; mutate admin |
-| `GET/POST /recipes`; `GET/PATCH/DELETE /recipes/{id}` | CRUD, filters `cuisine,mealType,tag,status` | read any; mutate admin |
-| `GET/POST /meal-plans`; `GET/PATCH/DELETE /meal-plans/{id}` | plan CRUD, filters `weekStartDate,status` | read any; mutate admin |
-| `POST /meal-plans/{id}/entries`; `PATCH/DELETE .../entries/{entryId}` | entry add/edit/move/remove | admin |
-| `GET /shopping-lists`; `GET/PATCH /shopping-lists/{id}` | list read and item replacement/edit | read any; mutate admin |
-| `POST /meal-plans/{id}/shopping-list` | generate/regenerate transactionally | admin |
-| `DELETE /shopping-lists/{id}/checked` | clear checked lines | admin |
-| `GET /audit-events` | read; filters `actorId,action,entityType,from,to` | member (household-scoped) |
-| `GET /bootstrap` | optional aggregate initial payload matching `AppData` | any |
+- **Member**: `{id,name,email,avatarInitials,role:"owner"|"administrator"|"member",status:"active"|"inactive",joinedAt}`.
+- **Session** is client-derived from an auth envelope: `{userId,expiresAt}`.
+- **Household**: `{id,name,timezone,defaultServings,notes?,updatedAt}`.
+- **Invitation**: `{id,householdId,email,proposedRole:"administrator"|"member",invitedBy,createdAt,expiresAt,status:"pending"|"accepted"|"expired"|"revoked",token,acceptedAt?}`. A production inspection token may be represented separately, but the configured response must match the adapter.
+- **DietaryProfile**: `{id,memberId,dietaryPatterns:string[],allergens:string[],excludedIngredients:string[],preferences,updatedAt}`.
+- **Ingredient**: `{id,name,category,defaultUnit,allergens:string[],notes?,status:"active"|"archived",createdAt,updatedAt}`.
+- **RecipeIngredient**: `{ingredientId,quantity,unit,preparationNote?}` where quantity is positive.
+- **Recipe**: `{id,name,description,prepTimeMinutes,cookTimeMinutes,servings,difficulty,cuisine,mealTypes,tags,status,imageUrl?,ingredients,instructions,createdAt,updatedAt}`.
+- **MealEntry**: `{id,date,mealType,recipeId,servingCount,notes?}`.
+- **WeeklyMealPlan**: `{id,householdId,name,weekStartDate,status,notes?,entries,createdAt,updatedAt}`.
+- **ShoppingListItem**: `{id,ingredientId?,name,category,quantity,unit,checked,source:"generated"|"manual"}`.
+- **ShoppingList**: `{id,householdId,planId,name,items,createdAt,updatedAt}`.
+- **AuditEvent**: `{id,actorId?,action,entityType,entityId,timestamp,summary}`.
+- **AppData/bootstrap**: `{version:2,household,members,invitations,dietaryProfiles,ingredients,recipes,plans,shoppingLists,auditEvents}`.
 
-Ingredient names and member/invitation emails are household-unique case-insensitively. Reject deleting referenced ingredients/recipes with `409 REFERENCED`; reject removing/demoting the only owner with `409 ONLY_OWNER`. Validate recipe references and nonempty rows/steps, entry recipes and seven-day date bounds. Plan deletion transactionally removes its derived shopping list or returns a documented conflict. Shopping generation and regeneration must implement the exact scaling, normalized-unit aggregation, no-conversion, manual preservation, and safe checked-state matching rules in `product-logic.md`.
+## Pagination
+
+Collection endpoints accept `page` (default `1`), `pageSize` (default `25`, maximum `100`), `search`, `sort`, and filters listed below. They return:
+
+```json
+{"items":[],"page":1,"pageSize":25,"totalItems":0,"totalPages":0}
+```
+
+The current adapter uses the aggregate `/bootstrap` for its UI collections. Paginated endpoints remain required for incremental backend adoption and direct detail screens. `/bootstrap` must return the complete Stage 0 household dataset until the provider migrates to individual paginated reads.
+
+## Exact repository mapping
+
+### Bootstrap and current user
+
+- `GET /bootstrap` → `200 AppData`; protected, any active member.
+- `GET /users/me` → `200 Member`; protected, any member.
+- `PATCH /users/me`, body `{"name":"Avery Stone","email":"avery@example.com"}` → `200 Member`; protected self. Errors `401/409/422`.
+
+### Household, dietary profiles, and members
+
+- `PATCH /household`, partial body containing `name`, `timezone`, `defaultServings`, and/or `notes` → `200 Household`; administrator/owner.
+- `PUT /household/members/{memberId}/dietary-profile`, body `{dietaryPatterns,allergens,excludedIngredients,preferences}` → `200 DietaryProfile`; self, or elevated policy explicitly implemented by backend.
+- `PATCH /household/members/{memberId}`, body `{"role":"administrator"}` → `200 Member`; administrator for non-owners, owner for owners/owner promotion.
+- `DELETE /household/members/{memberId}` → `204`; same role rules. `409 ONLY_OWNER` prevents removing the final owner.
+- `GET /household/members?page=1&pageSize=25&role=member&status=active&search=...` → paginated Members.
+
+### Invitations
+
+- `POST /household/invitations`, body `{"email":"new@example.com","proposedRole":"member"}` → `201 Invitation`; administrator/owner. `409 DUPLICATE` for an active member or pending invitation.
+- `POST /household/invitations/{id}/resend` → `200 Invitation`; rotates token and extends expiry; administrator/owner.
+- `DELETE /household/invitations/{id}` → `204`; transitions pending to revoked; administrator/owner.
+- `GET /invitations/{token}` → `200 Invitation`; public, rate-limited. Return `200` with accepted/revoked/expired status so the UI can explain it; `404` only for unknown token.
+- `POST /invitations/{token}/accept`, body `{"name":"New Person"}` → `200 Member`; public, rate-limited, consumes token transactionally. Errors `409 DUPLICATE`, `410 INVITATION_UNAVAILABLE`, `422`.
+- `GET /household/invitations?page=1&pageSize=25&status=pending&search=...` → paginated Invitations; administrator/owner.
+
+### Ingredients
+
+- `POST /ingredients`, body omits `id/createdAt/updatedAt` → `201 Ingredient`.
+- `PATCH /ingredients/{id}`, partial mutable body → `200 Ingredient`.
+- `DELETE /ingredients/{id}` → `204`; `409 REFERENCED` if any recipe uses it.
+- `GET /ingredients?page=1&pageSize=25&search=...&category=Produce&status=active` → paginated Ingredients.
+Reads allow members; mutations require administrator/owner. Names are unique case-insensitively per household.
+
+### Recipes
+
+- `POST /recipes`, complete mutable Recipe body without server fields → `201 Recipe`.
+- `PATCH /recipes/{id}`, partial mutable body → `200 Recipe`.
+- `DELETE /recipes/{id}` → `204`; `409 REFERENCED` if a plan entry uses it.
+- `GET /recipes?page=1&pageSize=25&search=...&cuisine=Italian&mealType=dinner&tag=quick&status=active` → paginated Recipes.
+Every ingredient ID must exist; at least one positive row and instruction are required. Reads allow members; mutations require administrator/owner.
+
+### Weekly plans and meal entries
+
+- `POST /meal-plans`, body without server fields → `201 WeeklyMealPlan`.
+- `PATCH /meal-plans/{id}`, partial body → `200 WeeklyMealPlan`. Reject a changed week start with `409 ENTRY_OUTSIDE_WEEK` if existing entries fall outside the resulting seven-day interval.
+- `DELETE /meal-plans/{id}` → `204`; transactionally deletes its derived shopping list.
+- `POST /meal-plans/{id}/entries`, body without entry ID → `200 WeeklyMealPlan`.
+- `PATCH /meal-plans/{id}/entries/{entryId}`, body with entry ID accepted but path authoritative → `200 WeeklyMealPlan`.
+- `DELETE /meal-plans/{id}/entries/{entryId}` → `200 WeeklyMealPlan` (the adapter expects the resulting plan, not `204`).
+- `GET /meal-plans?page=1&pageSize=25&weekStartDate=...&status=active` → paginated plans.
+Reads allow members; all mutations require administrator/owner. Entry dates must be in-week and recipes must exist.
+
+### Shopping lists
+
+- `POST /meal-plans/{planId}/shopping-list` → `200 ShoppingList`; generate or regenerate.
+- `PATCH /shopping-lists/{id}`, body is a partial ShoppingList (currently item replacement) → `200 ShoppingList`.
+- `DELETE /shopping-lists/{id}/checked` → `200 ShoppingList` after removal.
+- `GET /shopping-lists?page=1&pageSize=25&planId=...` → paginated ShoppingLists.
+Reads allow members; mutations require administrator/owner. All quantities are positive and units nonempty. Generation scales by `entry.servingCount / recipe.servings`, combines only ingredient plus normalized unit, performs no conversion, preserves manual items, and preserves safely matched generated checked state.
+
+### Audit reads
+
+- `GET /audit-events?page=1&pageSize=25&actorId=...&action=...&entityType=...&from=...&to=...` → paginated AuditEvents; protected household member.
+- There are no frontend audit-write endpoints. Backend mutations append authoritative events transactionally.
+
+## Referential integrity and transactional behavior
+
+The backend verifies all household, member, ingredient, recipe, plan, and shopping-list relationships on every write. Failed validation must not partially mutate any record. Archiving preserves references; hard deletion is allowed only when the rules above permit it. Invitation acceptance, plan deletion, shopping regeneration, role changes, and audit append should be single transactions.

@@ -1,2 +1,41 @@
-'use client';import { useState } from 'react';import { AppShell } from '@/components/AppShell';import { IngredientForm } from '@/components/Forms';import { Badge,Button,Card,Empty,Field,Select } from '@/components/ui';import { useMealPlanner } from '@/data/RepositoryProvider';
-export default function Ingredients(){const {data,user,repo,run}=useMealPlanner(),[q,setQ]=useState(''),[filter,setFilter]=useState('all'),[edit,setEdit]=useState<string|null>(null),[create,setCreate]=useState(false);if(!data)return null;const can=user?.role!=='member',items=data.ingredients.filter(x=>x.name.toLowerCase().includes(q.toLowerCase())&&(filter==='all'||x.status===filter));return <AppShell><h1 className="text-3xl font-bold">Ingredients</h1><Card><div className="flex gap-3"><Field label="Search" value={q} onChange={e=>setQ(e.target.value)}/><Select label="Status" value={filter} onChange={e=>setFilter(e.target.value)}><option value="all">All</option><option>active</option><option>archived</option></Select>{can&&<Button className="self-end" onClick={()=>setCreate(!create)}>Create ingredient</Button>}</div>{create&&<div className="mt-4"><IngredientForm onSaved={()=>setCreate(false)}/></div>}</Card>{items.length?<div className="grid gap-3 md:grid-cols-2">{items.map(x=><Card key={x.id}><div className="flex justify-between"><h2 className="text-xl font-semibold">{x.name}</h2><Badge>{x.status}</Badge></div><p>{x.category} · {x.defaultUnit}</p><p className="text-sm">Allergens: {x.allergens.join(', ')||'none declared'}</p>{edit===x.id&&<IngredientForm item={x} onSaved={()=>setEdit(null)}/>} {can&&<div className="mt-3 flex gap-2"><Button onClick={()=>setEdit(edit===x.id?null:x.id)}>Edit</Button><Button variant="secondary" onClick={()=>run(()=>repo.updateIngredient(x.id,{status:x.status==='active'?'archived':'active'}),'Status updated.')}>{x.status==='active'?'Archive':'Restore'}</Button><Button variant="destructive" onClick={()=>run(()=>repo.deleteIngredient(x.id),'Ingredient deleted.')}>Delete</Button></div>}</Card>)}</div>:<Empty title="No ingredients found" body="Clear filters or create the first ingredient."/>}</AppShell>}
+'use client';
+import { useState } from 'react';
+import { AppShell } from '@/components/AppShell';
+import { IngredientForm } from '@/components/Forms';
+import { Badge, Button, Card, Empty, Field, Select } from '@/components/ui';
+import { useMealPlanner } from '@/data/RepositoryProvider';
+export default function Ingredients() {
+    const { data, user, repo, run } = useMealPlanner(), [q, setQ] = useState(''), [filter, setFilter] = useState('all'), [edit, setEdit] = useState<string | null>(null), [create, setCreate] = useState(false);
+    if (!data)
+        return null;
+    const can = user?.role !== 'member', items = data.ingredients.filter(x => x.name.toLowerCase().includes(q.toLowerCase()) && (filter === 'all' || x.status === filter));
+    return <AppShell>
+<h1 className="text-3xl font-bold">Ingredients</h1>
+<Card>
+<div className="flex gap-3">
+<Field label="Search" value={q} onChange={e => setQ(e.target.value)}/>
+<Select label="Status" value={filter} onChange={e => setFilter(e.target.value)}>
+<option value="all">All</option>
+<option>active</option>
+<option>archived</option>
+</Select>
+{can && <Button className="self-end" onClick={() => setCreate(!create)}>Create ingredient</Button>}</div>
+{create && <div className="mt-4">
+<IngredientForm onSaved={() => setCreate(false)}/>
+</div>}</Card>
+{items.length ? <div className="grid gap-3 md:grid-cols-2">{items.map(x => <Card key={x.id}>
+<div className="flex justify-between">
+<h2 className="text-xl font-semibold">{x.name}</h2>
+<Badge>{x.status}</Badge>
+</div>
+<p>{x.category} · {x.defaultUnit}</p>
+<p className="text-sm">Allergens: {x.allergens.join(', ') || 'none declared'}</p>
+{edit === x.id && <IngredientForm item={x} onSaved={() => setEdit(null)}/>} {can && <div className="mt-3 flex gap-2">
+<Button onClick={() => setEdit(edit === x.id ? null : x.id)}>Edit</Button>
+<Button variant="secondary" onClick={() => run(() => repo.updateIngredient(x.id, { status: x.status === 'active' ? 'archived' : 'active' }), 'Status updated.')}>{x.status === 'active' ? 'Archive' : 'Restore'}</Button>
+<Button variant="destructive" onClick={() => {
+                        if (window.confirm(`Delete ${x.name}?`))
+                            void run(() => repo.deleteIngredient(x.id), 'Ingredient deleted.');
+                    }}>Delete</Button>
+</div>}</Card>)}</div> : <Empty title="No ingredients found" body="Clear filters or create the first ingredient."/>}</AppShell>;
+}

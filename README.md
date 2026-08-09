@@ -14,7 +14,7 @@ Storage is read only after client mount, preventing server-render storage access
 
 ## Requirements and commands
 
-Node.js 22.x and npm 10+.
+Node.js 22.18.0 and npm 10.9.2 (pinned by `packageManager`).
 
 ```bash
 npm ci
