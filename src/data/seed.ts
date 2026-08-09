@@ -1,14 +1,242 @@
-import type { AppData } from '@/lib/types';
-export const DEMO_EMAIL='owner@mealplanner.dev';export const DEMO_PASSWORD='mealplanner-demo';const now='2026-08-03T12:00:00.000Z';
-export const seedData:AppData={household:{id:'hh-green-table',name:'Green Table Household',timezone:'America/New_York',defaultServings:4,notes:'Frontend-only demo household.',updatedAt:now},members:[{id:'user-owner',name:'Avery Stone',email:DEMO_EMAIL,role:'owner',avatarInitials:'AS',status:'active',joinedAt:'2025-01-05T10:00:00.000Z'},{id:'user-admin',name:'Morgan Lee',email:'admin@mealplanner.dev',role:'administrator',avatarInitials:'ML',status:'active',joinedAt:now},{id:'user-1',name:'Jamie Rivera',email:'jamie@example.com',role:'member',avatarInitials:'JR',status:'active',joinedAt:now},{id:'user-2',name:'Sam Patel',email:'sam@example.com',role:'member',avatarInitials:'SP',status:'active',joinedAt:now}],invitations:[{id:'inv-casey',email:'casey@example.com',role:'member',invitedBy:'user-owner',createdAt:now,status:'pending'}],ingredients:['onion|Produce|pieces','garlic|Produce|cloves','tomato|Produce|cups','chicken-breast|Meat and poultry|lb','salmon|Seafood|fillets','egg|Dairy|eggs','milk|Dairy|cups','rice|Grains|cups','pasta|Grains|oz','black-beans|Legumes|cups','olive-oil|Condiments|tbsp','soy-sauce|Condiments|tbsp','flour|Baking|cups','cheddar|Dairy|cups','spinach|Produce|cups','oats|Grains|cups','yogurt|Dairy|cups','cumin|Spices|tsp','bell-pepper|Produce|pieces','tortilla|Grains|pieces'].map(s=>{const [id,category,unit]=s.split('|');return{id:`ing-${id}`,name:id.split('-').map(w=>w[0].toUpperCase()+w.slice(1)).join(' '),category:category as never,defaultUnit:unit,allergens:category==='Dairy'?['milk']:[],notes:'Seeded pantry ingredient',status:'active' as const,createdAt:now,updatedAt:now}}),recipes:[],plans:[]};
-seedData.recipes=[
-['rec-veg-omelet','Garden Vegetable Omelet','A quick egg breakfast with spinach and peppers.',10,8,2,'easy','American',['breakfast'],['quick'],['Whisk eggs.','Saute vegetables.','Cook eggs until set.'],[['ing-egg',4,'eggs','beaten'],['ing-spinach',1,'cups','chopped'],['ing-bell-pepper',1,'pieces','diced']]],
-['rec-salmon-rice','Soy Salmon Rice Bowls','Savory salmon over rice with a simple soy glaze.',15,18,4,'medium','Japanese',['dinner','lunch'],['seafood'],['Cook rice.','Bake glazed salmon.','Serve bowls.'],[['ing-salmon',4,'fillets',''],['ing-rice',2,'cups','cooked'],['ing-soy-sauce',3,'tbsp','glaze']]],
-['rec-chicken-tacos','Chicken Black Bean Tacos','Weeknight tacos with seasoned chicken and beans.',15,20,4,'easy','Mexican',['dinner'],['family'],['Season chicken.','Warm tortillas.','Assemble tacos.'],[['ing-chicken-breast',1.5,'lb','sliced'],['ing-black-beans',1,'cups','rinsed'],['ing-tortilla',8,'pieces','warm']]],
-['rec-tomato-pasta','Tomato Garlic Pasta','Comforting pasta with tomato and garlic sauce.',10,25,4,'easy','Italian',['dinner'],['vegetarian'],['Boil pasta.','Simmer sauce.','Toss together.'],[['ing-pasta',12,'oz',''],['ing-tomato',2,'cups','crushed'],['ing-garlic',3,'cloves','minced']]],
-['rec-oats','Overnight Oats','Make-ahead oats with yogurt and milk.',5,0,2,'easy','American',['breakfast'],['make-ahead'],['Mix ingredients.','Refrigerate overnight.'],[['ing-oats',1,'cups',''],['ing-yogurt',1,'cups',''],['ing-milk',1,'cups','']]],
-['rec-fried-rice','Vegetable Fried Rice','Flexible rice skillet for lunches.',12,15,4,'easy','Chinese',['lunch','dinner'],['leftovers'],['Scramble eggs.','Stir fry rice.','Season and serve.'],[['ing-rice',3,'cups','cold'],['ing-egg',2,'eggs',''],['ing-soy-sauce',2,'tbsp','']]],
-['rec-bean-chili','Black Bean Chili','Hearty chili with cumin and tomatoes.',15,35,6,'medium','Tex-Mex',['dinner'],['freezer'],['Saute aromatics.','Simmer beans and tomatoes.'],[['ing-black-beans',3,'cups',''],['ing-tomato',2,'cups','diced'],['ing-cumin',2,'tsp','']]],
-['rec-pancakes','Weekend Pancakes','Fluffy pancakes for a relaxed breakfast.',10,15,4,'easy','American',['breakfast'],['weekend'],['Mix batter.','Cook on griddle.'],[['ing-flour',2,'cups',''],['ing-milk',1.5,'cups',''],['ing-egg',2,'eggs','']]]
-].map(r=>({id:r[0] as string,name:r[1] as string,description:r[2] as string,prepTimeMinutes:r[3] as number,cookTimeMinutes:r[4] as number,servings:r[5] as number,difficulty:r[6] as never,cuisine:r[7] as string,mealTypes:r[8] as never,tags:r[9] as string[],instructions:r[10] as string[],ingredients:(r[11] as [string,number,string,string][]).map(([ingredientId,quantity,unit,preparationNote])=>({ingredientId,quantity,unit,preparationNote})),imageUrl:'',status:'active',createdAt:now,updatedAt:now}));
-seedData.plans=[{id:'plan-current',householdId:'hh-green-table',name:'First week of August',weekStartDate:'2026-08-03',status:'active',notes:'Balanced family favorites.',createdAt:now,updatedAt:now,entries:[{id:'meal-mon-breakfast',date:'2026-08-03',mealType:'breakfast',recipeId:'rec-oats',servingCount:4},{id:'meal-mon-dinner',date:'2026-08-03',mealType:'dinner',recipeId:'rec-tomato-pasta',servingCount:4},{id:'meal-tue-dinner',date:'2026-08-04',mealType:'dinner',recipeId:'rec-salmon-rice',servingCount:4},{id:'meal-wed-lunch',date:'2026-08-05',mealType:'lunch',recipeId:'rec-fried-rice',servingCount:3},{id:'meal-wed-dinner',date:'2026-08-05',mealType:'dinner',recipeId:'rec-chicken-tacos',servingCount:4}]}];
+import type { AppData, Ingredient, Recipe } from '@/lib/types';
+export const DEMO_PASSWORD = 'mealplanner-demo';
+export const DEMO_ACCOUNTS = [
+  { email: 'owner@mealplanner.dev', role: 'owner' },
+  { email: 'admin@mealplanner.dev', role: 'administrator' },
+  { email: 'member@mealplanner.dev', role: 'member' },
+] as const;
+const now = '2026-08-03T12:00:00.000Z';
+const ingredientRows = [
+  ['onion', 'Onion', 'Produce', 'pieces', []],
+  ['garlic', 'Garlic', 'Produce', 'cloves', []],
+  ['tomato', 'Tomato', 'Produce', 'cups', []],
+  ['chicken', 'Chicken breast', 'Meat and poultry', 'lb', []],
+  ['salmon', 'Salmon', 'Seafood', 'fillets', ['fish']],
+  ['egg', 'Egg', 'Dairy', 'eggs', ['egg']],
+  ['milk', 'Milk', 'Dairy', 'cups', ['milk']],
+  ['rice', 'Rice', 'Grains', 'cups', []],
+  ['pasta', 'Pasta', 'Grains', 'oz', ['wheat']],
+  ['beans', 'Black beans', 'Legumes', 'cups', []],
+  ['oil', 'Olive oil', 'Condiments', 'tbsp', []],
+  ['soy', 'Soy sauce', 'Condiments', 'tbsp', ['soy', 'wheat']],
+  ['spinach', 'Spinach', 'Produce', 'cups', []],
+  ['oats', 'Oats', 'Grains', 'cups', []],
+  ['pepper', 'Bell pepper', 'Produce', 'pieces', []],
+  ['tortilla', 'Tortilla', 'Grains', 'pieces', ['wheat']],
+] as const;
+const ingredients: Ingredient[] = ingredientRows.map(
+  ([slug, name, category, defaultUnit, allergens]) => ({
+    id: `ing-${slug}`,
+    name,
+    category,
+    defaultUnit,
+    allergens: [...allergens],
+    notes: 'Seeded pantry ingredient',
+    status: 'active',
+    createdAt: now,
+    updatedAt: now,
+  }),
+);
+const recipes: Recipe[] = [
+  {
+    id: 'rec-pasta',
+    name: 'Tomato Garlic Pasta',
+    description: 'Comforting pasta with tomato and garlic sauce.',
+    prepTimeMinutes: 10,
+    cookTimeMinutes: 25,
+    servings: 4,
+    difficulty: 'easy',
+    cuisine: 'Italian',
+    mealTypes: ['dinner'],
+    tags: ['vegetarian'],
+    status: 'active',
+    imageUrl: '',
+    ingredients: [
+      { ingredientId: 'ing-pasta', quantity: 12, unit: 'oz' },
+      { ingredientId: 'ing-tomato', quantity: 2, unit: 'cups' },
+      { ingredientId: 'ing-garlic', quantity: 3, unit: 'cloves' },
+    ],
+    instructions: ['Boil the pasta.', 'Simmer the sauce.', 'Toss together and serve.'],
+    createdAt: now,
+    updatedAt: now,
+  },
+  {
+    id: 'rec-tacos',
+    name: 'Chicken Black Bean Tacos',
+    description: 'Weeknight tacos with seasoned chicken and beans.',
+    prepTimeMinutes: 15,
+    cookTimeMinutes: 20,
+    servings: 4,
+    difficulty: 'easy',
+    cuisine: 'Mexican',
+    mealTypes: ['dinner'],
+    tags: ['family'],
+    status: 'active',
+    imageUrl: '',
+    ingredients: [
+      { ingredientId: 'ing-chicken', quantity: 1.5, unit: 'lb' },
+      { ingredientId: 'ing-beans', quantity: 1, unit: 'cups' },
+      { ingredientId: 'ing-tortilla', quantity: 8, unit: 'pieces' },
+    ],
+    instructions: ['Season and cook chicken.', 'Warm tortillas.', 'Assemble tacos.'],
+    createdAt: now,
+    updatedAt: now,
+  },
+];
+export function createSeedData(referenceTime = Date.now()): AppData {
+  return {
+    version: 2,
+    household: {
+      id: 'hh-green-table',
+      name: 'Green Table Household',
+      timezone: 'America/New_York',
+      defaultServings: 4,
+      notes: 'Frontend-only demo household.',
+      updatedAt: now,
+    },
+    members: [
+      {
+        id: 'user-owner',
+        name: 'Avery Stone',
+        email: 'owner@mealplanner.dev',
+        avatarInitials: 'AS',
+        role: 'owner',
+        status: 'active',
+        joinedAt: now,
+      },
+      {
+        id: 'user-admin',
+        name: 'Morgan Lee',
+        email: 'admin@mealplanner.dev',
+        avatarInitials: 'ML',
+        role: 'administrator',
+        status: 'active',
+        joinedAt: now,
+      },
+      {
+        id: 'user-member',
+        name: 'Jamie Rivera',
+        email: 'member@mealplanner.dev',
+        avatarInitials: 'JR',
+        role: 'member',
+        status: 'active',
+        joinedAt: now,
+      },
+    ],
+    invitations: [
+      {
+        id: 'inv-casey',
+        householdId: 'hh-green-table',
+        email: 'casey@example.com',
+        proposedRole: 'member',
+        invitedBy: 'user-owner',
+        createdAt: new Date(referenceTime).toISOString(),
+        expiresAt: new Date(referenceTime + 7 * 86400000).toISOString(),
+        status: 'pending',
+      },
+    ],
+    dietaryProfiles: [
+      {
+        id: 'diet-owner',
+        memberId: 'user-owner',
+        dietaryPatterns: ['flexitarian'],
+        allergens: [],
+        excludedIngredients: ['olives'],
+        preferences: 'Quick weekday dinners.',
+        updatedAt: now,
+      },
+      {
+        id: 'diet-admin',
+        memberId: 'user-admin',
+        dietaryPatterns: ['vegetarian'],
+        allergens: ['fish'],
+        excludedIngredients: [],
+        preferences: 'Likes spicy food.',
+        updatedAt: now,
+      },
+      {
+        id: 'diet-member',
+        memberId: 'user-member',
+        dietaryPatterns: [],
+        allergens: ['milk'],
+        excludedIngredients: ['onion'],
+        preferences: 'User-supplied preferences only.',
+        updatedAt: now,
+      },
+    ],
+    ingredients,
+    recipes,
+    plans: [
+      {
+        id: 'plan-current',
+        householdId: 'hh-green-table',
+        name: 'First week of August',
+        weekStartDate: '2026-08-03',
+        status: 'active',
+        notes: 'Balanced family favorites.',
+        createdAt: now,
+        updatedAt: now,
+        entries: [
+          {
+            id: 'meal-1',
+            date: '2026-08-03',
+            mealType: 'dinner',
+            recipeId: 'rec-pasta',
+            servingCount: 4,
+          },
+          {
+            id: 'meal-2',
+            date: '2026-08-05',
+            mealType: 'dinner',
+            recipeId: 'rec-tacos',
+            servingCount: 6,
+          },
+        ],
+      },
+    ],
+    shoppingLists: [
+      {
+        id: 'list-current',
+        householdId: 'hh-green-table',
+        planId: 'plan-current',
+        name: 'First week groceries',
+        createdAt: now,
+        updatedAt: now,
+        items: [
+          {
+            id: 'shop-pasta',
+            ingredientId: 'ing-pasta',
+            name: 'Pasta',
+            category: 'Grains',
+            quantity: 12,
+            unit: 'oz',
+            checked: false,
+            source: 'generated',
+          },
+          {
+            id: 'shop-bananas',
+            name: 'Bananas',
+            category: 'Produce',
+            quantity: 6,
+            unit: 'pieces',
+            checked: true,
+            source: 'manual',
+          },
+        ],
+      },
+    ],
+    auditEvents: [
+      {
+        id: 'audit-seed',
+        actorId: 'user-owner',
+        action: 'seed.created',
+        entityType: 'household',
+        entityId: 'hh-green-table',
+        timestamp: now,
+        summary: 'Created deterministic demo household.',
+      },
+    ],
+  };
+}
+export const seedData = createSeedData();
+export const createSeedInvitationSecrets = () => ({ 'inv-casey': 'demo-casey-token' });

@@ -1,3 +1,58 @@
 'use client';
-import { useState } from 'react';import { useRouter } from 'next/navigation';import { repo } from '@/data/repository';import { Button, Card, Field } from '@/components/ui';import { ThemeToggle } from '@/components/ThemeToggle';
-export default function Login(){const r=useRouter();const [email,setEmail]=useState(repo.demo.email),[password,setPassword]=useState(repo.demo.password),[err,setErr]=useState('');return <main className="container-page grid min-h-screen place-items-center"><div className="absolute right-6 top-6"><ThemeToggle/></div><Card className="w-full max-w-md"><p className="text-sm font-semibold uppercase tracking-wide text-[rgb(var(--primary))]">Household operations</p><h1 className="mt-2 text-3xl font-bold tracking-tight">Sign in to Meal Planner</h1><p className="mt-2 text-sm leading-6 text-[rgb(var(--muted))]">Simulated development authentication only. It is not real security.</p><div className="my-5 rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--primary-soft))] p-3 text-sm">Demo: <b>{repo.demo.email}</b> / <b>{repo.demo.password}</b></div><form className="space-y-4" onSubmit={e=>{e.preventDefault();try{repo.login(email,password);r.push('/dashboard')}catch(x){setErr((x as Error).message)}}}><Field label="Email" value={email} onChange={e=>setEmail(e.target.value)}/><Field label="Password" type="password" value={password} onChange={e=>setPassword(e.target.value)}/>{err&&<p role="alert" className="rounded-xl bg-red-50 p-3 text-sm font-medium text-red-800 dark:bg-red-950 dark:text-red-200">{err}</p>}<Button className="w-full">Sign in</Button></form></Card></main>}
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { Button, Card, Field } from '@/components/ui';
+import { useMealPlanner } from '@/data/RepositoryProvider';
+export default function Login() {
+  const { repo, run } = useMealPlanner();
+  const router = useRouter();
+  const mockMode = repo.capabilities.mode === 'mock';
+  const [email, setEmail] = useState(mockMode ? repo.demo.accounts[0].email : '');
+  const [password, setPassword] = useState(mockMode ? repo.demo.password : '');
+  return (
+    <main className="container-page grid min-h-screen place-items-center">
+      <Card className="w-full max-w-md">
+        <h1 className="text-3xl font-bold">Sign in to Meal Planner</h1>
+        <p className="mt-2 text-sm text-[rgb(var(--muted))]">
+          {mockMode
+            ? 'Use a demo account or an account accepted through an invitation.'
+            : 'Sign in with your Meal Planner account.'}
+        </p>
+        <form
+          className="mt-6 space-y-4"
+          onSubmit={async (event) => {
+            event.preventDefault();
+            const session = await run(() => repo.login(email, password), 'Signed in.');
+            if (session) router.push('/dashboard');
+          }}
+        >
+          <Field
+            required
+            label="Email"
+            type="email"
+            autoComplete="email"
+            list={mockMode ? 'demo-accounts' : undefined}
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
+          />
+          {mockMode && (
+            <datalist id="demo-accounts">
+              {repo.demo.accounts.map((account) => (
+                <option value={account.email} key={account.email} />
+              ))}
+            </datalist>
+          )}
+          <Field
+            required
+            label="Password"
+            type="password"
+            autoComplete="current-password"
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+          />
+          <Button className="w-full">Sign in</Button>
+        </form>
+      </Card>
+    </main>
+  );
+}

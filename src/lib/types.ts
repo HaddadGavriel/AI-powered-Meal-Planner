@@ -1,5 +1,35 @@
-export type Role='owner'|'administrator'|'member';export type MemberStatus='active'|'pending';export type IngredientCategory='Produce'|'Meat and poultry'|'Seafood'|'Dairy'|'Grains'|'Legumes'|'Spices'|'Condiments'|'Baking'|'Other';export type Status='active'|'archived';export type Difficulty='easy'|'medium'|'hard';export type MealType='breakfast'|'lunch'|'dinner'|'snack';export type PlanStatus='draft'|'active'|'completed'|'archived';
-export type User={id:string;name:string;email:string;role:Role;avatarInitials:string};export type Session={userId:string;expiresAt:string};export type Household={id:string;name:string;timezone:string;defaultServings:number;notes?:string;updatedAt:string};export type Member=User&{status:MemberStatus;joinedAt:string};export type Invitation={id:string;email:string;role:Role;invitedBy:string;createdAt:string;status:'pending'};
-export type Ingredient={id:string;name:string;category:IngredientCategory;defaultUnit:string;allergens:string[];notes?:string;status:Status;createdAt:string;updatedAt:string};
-export type RecipeIngredient={ingredientId:string;quantity:number;unit:string;preparationNote?:string};export type Recipe={id:string;name:string;description:string;prepTimeMinutes:number;cookTimeMinutes:number;servings:number;difficulty:Difficulty;cuisine:string;mealTypes:MealType[];tags:string[];instructions:string[];ingredients:RecipeIngredient[];imageUrl?:string;status:Status;createdAt:string;updatedAt:string};
-export type MealEntry={id:string;date:string;mealType:MealType;recipeId:string;servingCount:number;notes?:string};export type WeeklyMealPlan={id:string;householdId:string;name:string;weekStartDate:string;status:PlanStatus;entries:MealEntry[];notes?:string;createdAt:string;updatedAt:string};export type AppData={household:Household;members:Member[];invitations:Invitation[];ingredients:Ingredient[];recipes:Recipe[];plans:WeeklyMealPlan[]};
+import type { z } from 'zod';
+import type {
+  appDataSchema,
+  auditEventSchema,
+  dietaryProfileSchema,
+  householdSchema,
+  ingredientSchema,
+  invitationSummarySchema,
+  memberSchema,
+  recipeSchema,
+  sessionSchema,
+  shoppingListSchema,
+  userSchema,
+  weeklyMealPlanSchema,
+} from './schemas';
+export type Role = 'owner' | 'administrator' | 'member';
+export type User = z.infer<typeof userSchema>;
+export type Session = z.infer<typeof sessionSchema>;
+export type Household = z.infer<typeof householdSchema>;
+export type Member = z.infer<typeof memberSchema>;
+export type InvitationSummary = z.infer<typeof invitationSummarySchema>;
+export type Invitation = InvitationSummary;
+export type DietaryProfile = z.infer<typeof dietaryProfileSchema>;
+export type Ingredient = z.infer<typeof ingredientSchema>;
+export type Recipe = z.infer<typeof recipeSchema>;
+export type WeeklyMealPlan = z.infer<typeof weeklyMealPlanSchema>;
+export type ShoppingList = z.infer<typeof shoppingListSchema>;
+export type ShoppingListItem = ShoppingList['items'][number];
+export type AuditEvent = z.infer<typeof auditEventSchema>;
+export type AppData = z.infer<typeof appDataSchema>;
+export type MealEntry = WeeklyMealPlan['entries'][number];
+export type RecipeIngredient = Recipe['ingredients'][number];
+export type IngredientInput = Omit<Ingredient, 'id' | 'createdAt' | 'updatedAt'>;
+export type RecipeInput = Omit<Recipe, 'id' | 'createdAt' | 'updatedAt'>;
+export type PlanInput = Omit<WeeklyMealPlan, 'id' | 'createdAt' | 'updatedAt'>;
