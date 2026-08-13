@@ -2,10 +2,11 @@
 import { AppShell } from '@/components/AppShell';
 import { ActionLink, Card, Empty, PageHeader } from '@/components/ui';
 import { useMealPlanner } from '@/data/RepositoryProvider';
+import { calendarDateInTimeZone } from '@/lib/calendar';
 export default function Dashboard() {
   const { data } = useMealPlanner();
   if (!data) return null;
-  const today = new Date().toISOString().slice(0, 10),
+  const today = calendarDateInTimeZone(new Date(), data.household.timezone),
     plan =
       data.plans.find(
         (p) =>

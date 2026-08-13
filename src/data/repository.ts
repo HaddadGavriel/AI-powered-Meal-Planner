@@ -52,6 +52,7 @@ const backendErrorSchema = z.object({
 const copy = <T>(value: T): T => structuredClone(value);
 const now = () => new Date().toISOString();
 const newId = (prefix: string) => `${prefix}-${crypto.randomUUID()}`;
+const normalizeEmail = (email: string) => email.trim().toLowerCase();
 export type RepositoryMode = 'mock' | 'http';
 export type RepositoryCapabilities = {
   mode: RepositoryMode;
@@ -197,17 +198,11 @@ export class LocalStorageMealPlannerRepository implements MealPlannerRepository 
         'INVALID_REFERENCE',
       );
     }
-    if (
-      data.invitations.some(
-        (invitation) =>
-          invitation.householdId !== data.household.id || !memberIds.has(invitation.invitedBy),
-      )
-    ) {
+    if (data.invitations.some((invitation) => invitation.householdId !== data.household.id))
       throw new RepositoryError(
-        'An invitation references an unknown household or inviter.',
+        'An invitation references an unknown household.',
         'INVALID_REFERENCE',
       );
-    }
     const ingredientIds = new Set(data.ingredients.map((ingredient) => ingredient.id));
     if (
       data.recipes.some((recipe) =>
@@ -269,7 +264,7 @@ export class LocalStorageMealPlannerRepository implements MealPlannerRepository 
   }
   private readCredentials(): Record<string, string> {
     const seeded = Object.fromEntries(
-      DEMO_ACCOUNTS.map((account) => [account.email, DEMO_PASSWORD]),
+      DEMO_ACCOUNTS.map((account) => [normalizeEmail(account.email), DEMO_PASSWORD]),
     );
     if (typeof window === 'undefined') return seeded;
     try {
@@ -298,9 +293,9 @@ export class LocalStorageMealPlannerRepository implements MealPlannerRepository 
   async login(email: string, password: string) {
     const data = this.read();
     const member = data.members.find(
-      (candidate) => candidate.email.toLowerCase() === email.toLowerCase(),
+      (candidate) => normalizeEmail(candidate.email) === normalizeEmail(email),
     );
-    if (!member || this.readCredentials()[member.email.toLowerCase()] !== password) {
+    if (!member || this.readCredentials()[normalizeEmail(member.email)] !== password) {
       throw new RepositoryError('Email or password is incorrect.', 'INVALID_CREDENTIALS');
     }
     const session = sessionSchema.parse({
@@ -339,17 +334,29 @@ export class LocalStorageMealPlannerRepository implements MealPlannerRepository 
     const current = await this.currentUser();
     const member = data.members.find((candidate) => candidate.id === current?.id);
     if (!member) throw new RepositoryError('Sign in first.', 'UNAUTHORIZED');
+    const normalizedEmail = normalizeEmail(input.email);
     if (
       data.members.some(
         (candidate) =>
-          candidate.id !== member.id && candidate.email.toLowerCase() === input.email.toLowerCase(),
+          candidate.id !== member.id && normalizeEmail(candidate.email) === normalizedEmail,
       )
     ) {
       throw new RepositoryError('That email is already in use.', 'DUPLICATE');
     }
+    if (
+      data.invitations.some(
+        (invitation) =>
+          invitation.status === 'pending' && normalizeEmail(invitation.email) === normalizedEmail,
+      )
+    )
+      throw new RepositoryError('That email has a pending invitation.', 'DUPLICATE');
+    const previousEmail = normalizeEmail(member.email);
+    const credentials = this.readCredentials();
+    const password = credentials[previousEmail];
     const updated = memberSchema.parse({
       ...member,
       ...input,
+      email: normalizedEmail,
       avatarInitials: input.name
         .split(/\s+/)
         .map((part) => part[0])
@@ -360,6 +367,11 @@ export class LocalStorageMealPlannerRepository implements MealPlannerRepository 
     data.members[data.members.indexOf(member)] = updated;
     this.audit(data, 'profile.updated', 'user', updated.id, 'Updated personal profile.');
     this.commit(data);
+    if (previousEmail !== normalizedEmail && password) {
+      delete credentials[previousEmail];
+      credentials[normalizedEmail] = password;
+      this.writeCredentials(credentials);
+    }
     return updated;
   }
   async updateHousehold(input: Partial<Household>) {
@@ -410,12 +422,12 @@ export class LocalStorageMealPlannerRepository implements MealPlannerRepository 
   async invite(email: string, proposedRole: Exclude<Role, 'owner'>) {
     const user = await this.requireManage();
     const data = this.read();
-    const normalizedEmail = email.toLowerCase();
+    const normalizedEmail = normalizeEmail(email);
     if (
-      data.members.some((member) => member.email.toLowerCase() === normalizedEmail) ||
+      data.members.some((member) => normalizeEmail(member.email) === normalizedEmail) ||
       data.invitations.some(
         (invitation) =>
-          invitation.email.toLowerCase() === normalizedEmail && invitation.status === 'pending',
+          normalizeEmail(invitation.email) === normalizedEmail && invitation.status === 'pending',
       )
     ) {
       throw new RepositoryError(
@@ -534,7 +546,9 @@ export class LocalStorageMealPlannerRepository implements MealPlannerRepository 
       );
     const data = this.read();
     if (
-      data.members.some((member) => member.email.toLowerCase() === inspected.email.toLowerCase())
+      data.members.some(
+        (member) => normalizeEmail(member.email) === normalizeEmail(inspected.email),
+      )
     ) {
       throw new RepositoryError('This email already belongs to a household member.', 'DUPLICATE');
     }
@@ -581,7 +595,7 @@ export class LocalStorageMealPlannerRepository implements MealPlannerRepository 
     );
     this.commit(data);
     const credentials = this.readCredentials();
-    credentials[member.email.toLowerCase()] = password;
+    credentials[normalizeEmail(member.email)] = password;
     this.writeCredentials(credentials);
     const session = sessionSchema.parse({
       userId: member.id,
@@ -1073,13 +1087,24 @@ export class HttpMealPlannerRepository implements MealPlannerRepository {
     try {
       return await this.raw(path, schema, init, protectedRequest);
     } catch (error) {
-      if (
-        protectedRequest &&
-        error instanceof RepositoryError &&
-        error.status === 401 &&
-        (await this.refresh())
-      )
-        return this.raw(path, schema, init, true);
+      if (protectedRequest && error instanceof RepositoryError && error.status === 401) {
+        if (await this.refresh()) {
+          try {
+            return await this.raw(path, schema, init, true);
+          } catch (retryError) {
+            if (!(retryError instanceof RepositoryError) || retryError.status !== 401)
+              throw retryError;
+          }
+        }
+        this.accessToken = null;
+        this.session = null;
+        throw new RepositoryError(
+          'Your session has expired. Sign in again.',
+          'UNAUTHORIZED',
+          [],
+          401,
+        );
+      }
       throw error;
     }
   }

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { isValidTimeZone } from './calendar';
 const id = z.string().min(1);
 const timestamp = z.string().datetime();
 export const dateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Use YYYY-MM-DD');
@@ -15,7 +16,7 @@ export const sessionSchema = z.object({ userId: id, expiresAt: timestamp });
 export const householdSchema = z.object({
   id,
   name: z.string().min(2),
-  timezone: z.string().min(1),
+  timezone: z.string().min(1).refine(isValidTimeZone, 'Use a valid IANA timezone'),
   defaultServings: z.number().int().positive(),
   notes: z.string().optional(),
   updatedAt: timestamp,

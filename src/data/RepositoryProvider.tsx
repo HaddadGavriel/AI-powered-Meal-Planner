@@ -2,7 +2,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import type { AppData, Member } from '@/lib/types';
-import { createRepository, type MealPlannerRepository } from './repository';
+import { createRepository, RepositoryError, type MealPlannerRepository } from './repository';
 type RepositoryContext = {
   repo: MealPlannerRepository;
   data: AppData | null;
@@ -15,7 +15,7 @@ type RepositoryContext = {
 };
 const Context = createContext<RepositoryContext | null>(null);
 export function RepositoryProvider({ children }: { children: React.ReactNode }) {
-  const pathname = usePathname();
+  const pathname = usePathname() ?? '';
   const repo = useMemo(createRepository, []);
   const [data, setData] = useState<AppData | null>(null);
   const [user, setUser] = useState<Member | null>(null);
@@ -42,6 +42,10 @@ export function RepositoryProvider({ children }: { children: React.ReactNode }) 
       }
       setError(null);
     } catch (caught) {
+      if (caught instanceof RepositoryError && caught.status === 401) {
+        setData(null);
+        setUser(null);
+      }
       setError(caught instanceof Error ? caught.message : 'Unable to load data.');
     } finally {
       setLoading(false);
@@ -60,6 +64,10 @@ export function RepositoryProvider({ children }: { children: React.ReactNode }) 
         if (success) setMessage(success);
         return result;
       } catch (caught) {
+        if (caught instanceof RepositoryError && caught.status === 401) {
+          setData(null);
+          setUser(null);
+        }
         setError(caught instanceof Error ? caught.message : 'Something went wrong.');
         return undefined;
       }

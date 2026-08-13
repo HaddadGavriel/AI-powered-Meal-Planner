@@ -1,7 +1,8 @@
 'use client';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useMealPlanner } from '@/data/RepositoryProvider';
 import type { Ingredient, Recipe, WeeklyMealPlan, MealEntry } from '@/lib/types';
+import { calendarDateInTimeZone } from '@/lib/calendar';
 import { Button, Field, Select } from './ui';
 const split = (s: string) =>
   s
@@ -78,13 +79,14 @@ export function IngredientForm({ item, onSaved }: { item?: Ingredient; onSaved()
 }
 export function RecipeForm({ item, onSaved }: { item?: Recipe; onSaved(): void }) {
   const { data, repo, run } = useMealPlanner();
-  const ings = data?.ingredients.filter((x) => x.status === 'active') ?? [];
+  const referenced = new Set(item?.ingredients.map((row) => row.ingredientId) ?? []);
+  const ings = data?.ingredients.filter((x) => x.status === 'active' || referenced.has(x.id)) ?? [];
   const [v, setV] = useState({
     name: item?.name ?? '',
     description: item?.description ?? '',
     prep: item?.prepTimeMinutes ?? 10,
     cook: item?.cookTimeMinutes ?? 20,
-    servings: item?.servings ?? 4,
+    servings: item?.servings ?? data?.household.defaultServings ?? 4,
     difficulty: item?.difficulty ?? 'easy',
     cuisine: item?.cuisine ?? '',
     mealTypes: item?.mealTypes.join(', ') ?? 'dinner',
@@ -106,6 +108,10 @@ export function RecipeForm({ item, onSaved }: { item?: Recipe; onSaved(): void }
         : []),
   );
   const [steps, setSteps] = useState(item?.instructions ?? ['']);
+  useEffect(() => {
+    if (!item && data)
+      setV((current) => ({ ...current, servings: data.household.defaultServings }));
+  }, [data, item]);
   const field = (k: string, x: string | number) => setV({ ...v, [k]: x });
   if (!ings.length)
     return <p>No active ingredients exist. Create an ingredient before creating a recipe.</p>;
@@ -211,6 +217,7 @@ export function RecipeForm({ item, onSaved }: { item?: Recipe; onSaved(): void }
             {ings.map((x) => (
               <option value={x.id} key={x.id}>
                 {x.name}
+                {x.status === 'archived' ? ' (archived)' : ''}
               </option>
             ))}
           </select>
@@ -309,7 +316,9 @@ export function RecipeForm({ item, onSaved }: { item?: Recipe; onSaved(): void }
 export function PlanForm({ item, onSaved }: { item?: WeeklyMealPlan; onSaved(): void }) {
   const { data, repo, run } = useMealPlanner(),
     [name, setName] = useState(item?.name ?? ''),
-    [date, setDate] = useState(item?.weekStartDate ?? new Date().toISOString().slice(0, 10)),
+    [date, setDate] = useState(
+      item?.weekStartDate ?? calendarDateInTimeZone(new Date(), data?.household.timezone ?? 'UTC'),
+    ),
     [status, setStatus] = useState(item?.status ?? 'draft'),
     [notes, setNotes] = useState(item?.notes ?? '');
   return (
@@ -364,7 +373,10 @@ export function MealForm({
   onSaved(): void;
 }) {
   const { data, repo, run } = useMealPlanner(),
-    recipes = data?.recipes.filter((x) => x.status === 'active') ?? [],
+    recipes =
+      data?.recipes.filter(
+        (x) => x.status === 'active' || (meal !== undefined && x.id === meal.recipeId),
+      ) ?? [],
     [date, setDate] = useState(meal?.date ?? plan.weekStartDate),
     [type, setType] = useState(meal?.mealType ?? 'dinner'),
     [recipeId, setRecipe] = useState(meal?.recipeId ?? recipes[0]?.id ?? ''),
@@ -405,6 +417,7 @@ export function MealForm({
         {recipes.map((x) => (
           <option value={x.id} key={x.id}>
             {x.name}
+            {x.status === 'archived' ? ' (archived)' : ''}
           </option>
         ))}
       </Select>

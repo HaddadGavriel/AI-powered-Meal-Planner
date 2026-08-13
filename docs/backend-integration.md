@@ -77,7 +77,7 @@ The current adapter uses the aggregate `/bootstrap` for its UI collections. Pagi
 
 - `GET /bootstrap` → `200 AppData`; protected, any active member.
 - `GET /users/me` → `200 Member`; protected, any member.
-- `PATCH /users/me`, body `{"name":"Avery Stone","email":"avery@example.com"}` → `200 Member`; protected self. Errors `401/409/422`.
+- `PATCH /users/me`, body `{"name":"Avery Stone","email":"avery@example.com"}` → `200 Member`; protected self. Errors `401/409/422`. When email changes, the backend must atomically update the login identifier and profile email, rejecting collisions with members or live pending invitations; credentials must never enter bootstrap data.
 
 ### Household, dietary profiles, and members
 
@@ -139,4 +139,4 @@ The current adapter uses the aggregate `/bootstrap` for its UI collections. Pagi
 
 ## Referential integrity and transactional behavior
 
-The backend verifies all household, member, ingredient, recipe, plan, and shopping-list relationships on every write. Failed validation must not partially mutate any record. Archiving preserves references; hard deletion is allowed only when the rules above permit it. Invitation acceptance, plan deletion, shopping regeneration, role changes, and audit append should be single transactions.
+The backend verifies all household, member, ingredient, recipe, plan, and shopping-list relationships on every write. Invitation `invitedBy` is a historical user identifier and may refer to a member who is no longer in the active-members collection; it must not be reassigned or used to prevent member removal. Failed validation must not partially mutate any record. Archiving preserves references; hard deletion is allowed only when the rules above permit it. Invitation acceptance, plan deletion, shopping regeneration, role changes, and audit append should be single transactions.

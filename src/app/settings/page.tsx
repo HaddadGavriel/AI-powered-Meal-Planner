@@ -167,8 +167,8 @@ export default function Settings() {
               variant="destructive"
               onClick={async () => {
                 if (window.confirm('Reset all dummy data and sign out?')) {
-                  await repo.reset();
-                  router.push('/login');
+                  await run(() => repo.reset());
+                  router.replace('/login');
                 }
               }}
             >
