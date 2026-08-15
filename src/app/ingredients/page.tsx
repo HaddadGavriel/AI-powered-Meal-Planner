@@ -10,7 +10,7 @@ export default function Ingredients() {
     [filter, setFilter] = useState('all'),
     [edit, setEdit] = useState<string | null>(null),
     [create, setCreate] = useState(false);
-  if (!data) return null;
+  if (!data) return <AppShell>{null}</AppShell>;
   const can = user?.role !== 'member',
     items = data.ingredients.filter(
       (x) =>

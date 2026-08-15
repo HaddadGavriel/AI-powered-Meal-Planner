@@ -37,7 +37,7 @@ export default function Settings() {
       notes: data.household.notes ?? '',
     });
   }, [data, user]);
-  if (!data || !user) return null;
+  if (!data || !user) return <AppShell>{null}</AppShell>;
   return (
     <AppShell>
       <h1 className="text-3xl font-bold">Settings</h1>

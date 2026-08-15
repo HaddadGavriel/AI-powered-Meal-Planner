@@ -27,7 +27,7 @@ export default function Plans() {
   const [edit, setEdit] = useState<string | null>(null);
   const [meal, setMeal] = useState<string | null>(null);
   const [editMeal, setEditMeal] = useState<string | null>(null);
-  if (!data) return null;
+  if (!data) return <AppShell>{null}</AppShell>;
   const canManage = user?.role !== 'member';
   return (
     <AppShell>

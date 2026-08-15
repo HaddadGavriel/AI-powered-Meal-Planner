@@ -9,7 +9,7 @@ export default function Recipes() {
     [q, setQ] = useState(''),
     [show, setShow] = useState(false),
     [edit, setEdit] = useState<string | null>(null);
-  if (!data) return null;
+  if (!data) return <AppShell>{null}</AppShell>;
   const can = user?.role !== 'member',
     recipes = data.recipes.filter((x) => x.name.toLowerCase().includes(q.toLowerCase()));
   return (

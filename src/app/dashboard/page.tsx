@@ -5,7 +5,7 @@ import { useMealPlanner } from '@/data/RepositoryProvider';
 import { calendarDateInTimeZone } from '@/lib/calendar';
 export default function Dashboard() {
   const { data } = useMealPlanner();
-  if (!data) return null;
+  if (!data) return <AppShell>{null}</AppShell>;
   const today = calendarDateInTimeZone(new Date(), data.household.timezone),
     plan =
       data.plans.find(
