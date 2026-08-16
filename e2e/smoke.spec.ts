@@ -47,7 +47,8 @@ test('complete frontend Stage 0 journey', async ({ page }) => {
       has: page.getByRole('heading', { name: 'E2E week', exact: true }),
     });
     await expect(planCard.getByLabel('E2E week weekly calendar')).toBeVisible();
-    await planCard.getByRole('button', { name: 'Add meal' }).click();
+    // Match the workspace-level action, not any of the seven date-specific actions.
+    await planCard.getByRole('button', { name: 'Add meal', exact: true }).click();
     await planCard.getByLabel('Recipe').selectOption({ label: 'Basil Pasta Bowl' });
     await planCard.getByRole('button', { name: 'Save meal' }).click();
     await expect(planCard.getByText('Basil Pasta Bowl')).toBeVisible();
