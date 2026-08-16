@@ -366,10 +366,12 @@ export function PlanForm({ item, onSaved }: { item?: WeeklyMealPlan; onSaved(): 
 export function MealForm({
   plan,
   meal,
+  initialDate,
   onSaved,
 }: {
   plan: WeeklyMealPlan;
   meal?: MealEntry;
+  initialDate?: string;
   onSaved(): void;
 }) {
   const { data, repo, run } = useMealPlanner(),
@@ -377,7 +379,7 @@ export function MealForm({
       data?.recipes.filter(
         (x) => x.status === 'active' || (meal !== undefined && x.id === meal.recipeId),
       ) ?? [],
-    [date, setDate] = useState(meal?.date ?? plan.weekStartDate),
+    [date, setDate] = useState(meal?.date ?? initialDate ?? plan.weekStartDate),
     [type, setType] = useState(meal?.mealType ?? 'dinner'),
     [recipeId, setRecipe] = useState(meal?.recipeId ?? recipes[0]?.id ?? ''),
     [servings, setServings] = useState(meal?.servingCount ?? data?.household.defaultServings ?? 4),

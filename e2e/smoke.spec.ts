@@ -42,13 +42,11 @@ test('complete frontend Stage 0 journey', async ({ page }) => {
     await page.getByRole('button', { name: 'Create plan' }).click();
     await page.getByLabel('Plan name').fill('E2E week');
     await page.getByRole('button', { name: 'Save plan' }).click();
-    const planCard = page
-      .locator('section')
-      .filter({
-        has: page.getByRole('heading', { name: 'E2E week', exact: true }),
-      })
-      .first();
-    await expect(planCard.getByLabel('E2E week weekly grid')).toBeVisible();
+    await page.getByRole('button', { name: /E2E week/ }).click();
+    const planCard = page.getByTestId(/plan-/).filter({
+      has: page.getByRole('heading', { name: 'E2E week', exact: true }),
+    });
+    await expect(planCard.getByLabel('E2E week weekly calendar')).toBeVisible();
     await planCard.getByRole('button', { name: 'Add meal' }).click();
     await planCard.getByLabel('Recipe').selectOption({ label: 'Basil Pasta Bowl' });
     await planCard.getByRole('button', { name: 'Save meal' }).click();
@@ -107,6 +105,62 @@ test('member sees shopping data without mutation controls', async ({ page }) => 
   await expect(page.getByRole('checkbox')).toHaveCount(0);
   await expect(page.getByLabel('Quantity')).toHaveCount(0);
   await expect(page.getByLabel('Unit')).toHaveCount(0);
+});
+
+test('meal plan workspace supports deep links, day actions, meal changes, and responsive layouts', async ({
+  page,
+}) => {
+  await signInAs(page, 'owner@mealplanner.dev');
+  await page.goto('/plans?open=plan-current');
+  const workspace = page.getByTestId('plan-plan-current');
+  await expect(workspace.getByRole('heading', { name: 'First week of August' })).toBeVisible();
+  await expect(page).toHaveURL(/open=plan-current/);
+
+  const monday = workspace.getByRole('region', { name: /Monday/ });
+  await monday.getByRole('button', { name: /Add meal on Monday/ }).click();
+  await expect(workspace.getByLabel('Date')).toHaveValue('2026-08-03');
+  await workspace.getByLabel('Recipe').selectOption('rec-tacos');
+  await workspace.getByLabel('Notes').fill('Second Monday meal');
+  await workspace.getByRole('button', { name: 'Save meal' }).click();
+  await expect(monday.getByText('Chicken Black Bean Tacos')).toBeVisible();
+  await expect(monday.getByText('Second Monday meal')).toBeVisible();
+
+  await monday.getByRole('button', { name: 'Edit or move Chicken Black Bean Tacos' }).click();
+  await workspace.getByLabel('Date').fill('2026-08-04');
+  await workspace.getByRole('button', { name: 'Save meal' }).click();
+  const tuesday = workspace.getByRole('region', { name: /Tuesday/ });
+  await expect(tuesday.getByText('Chicken Black Bean Tacos')).toBeVisible();
+  await tuesday.getByRole('button', { name: 'Remove Chicken Black Bean Tacos' }).click();
+  await expect(tuesday.getByText('Chicken Black Bean Tacos')).toHaveCount(0);
+
+  await page.goto('/plans?open=missing-plan');
+  await expect(page.getByRole('status')).toContainText('could not be found');
+  await expect(page.getByTestId('plan-plan-current')).toBeVisible();
+
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const desktopDays = page
+    .getByLabel('First week of August weekly calendar')
+    .locator(':scope > section');
+  await expect(desktopDays).toHaveCount(7);
+  const firstBox = await desktopDays.nth(0).boundingBox();
+  const lastBox = await desktopDays.nth(6).boundingBox();
+  expect(firstBox?.y).toBe(lastBox?.y);
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  const mobileFirst = await desktopDays.nth(0).boundingBox();
+  const mobileSecond = await desktopDays.nth(1).boundingBox();
+  expect(mobileSecond!.y).toBeGreaterThan(mobileFirst!.y + mobileFirst!.height - 1);
+});
+
+test('meal plans are read-only for members', async ({ page }) => {
+  await signInAs(page, 'member@mealplanner.dev');
+  await page.goto('/plans?open=plan-current');
+  await expect(page.getByTestId('plan-plan-current')).toBeVisible();
+  await expect(
+    page.getByRole('button', {
+      name: /create plan|add meal|edit plan|archive plan|delete plan|edit or move|remove/i,
+    }),
+  ).toHaveCount(0);
 });
 
 test('logout clears protected data even after browser back', async ({ page }) => {
