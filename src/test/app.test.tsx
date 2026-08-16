@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { render, screen, waitFor } from '@testing-library/react';
 import { appDataSchema } from '@/lib/schemas';
 import {
   HttpMealPlannerRepository,
@@ -6,6 +7,9 @@ import {
   STORAGE_KEY,
 } from '@/data/repository';
 import { createSeedData, seedData } from '@/data/seed';
+import { calendarDateInTimeZone, formatCalendarDate } from '@/lib/calendar';
+import { RecipeForm, MealForm } from '@/components/Forms';
+import { RepositoryProvider } from '@/data/RepositoryProvider';
 const jsonResponse = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
     status,
@@ -58,6 +62,51 @@ describe('schemas and seed relationships', () => {
   });
 });
 describe('local repository integrity and authorization', () => {
+  it.each(['owner@mealplanner.dev', 'admin@mealplanner.dev', 'member@mealplanner.dev'])(
+    'migrates credentials when %s changes email',
+    async (email) => {
+      const repository = await signedIn(email);
+      const changed = `changed-${email}`;
+      await repository.updateProfile({
+        name: 'Changed Person',
+        email: ` ${changed.toUpperCase()} `,
+      });
+      await repository.logout();
+      await expect(repository.login(email, 'mealplanner-demo')).rejects.toMatchObject({
+        code: 'INVALID_CREDENTIALS',
+      });
+      await expect(repository.login(changed, 'mealplanner-demo')).resolves.toBeTruthy();
+    },
+  );
+  it('migrates invitation-created credentials and rejects a pending invitation collision', async () => {
+    const repository = await signedIn();
+    const accepted = await repository.invite('invited@example.com', 'member');
+    const token = await acceptanceToken(repository, accepted.id);
+    await repository.acceptInvitation(token, 'Invited Person', 'invite-password');
+    await repository.updateProfile({ name: 'Invited Person', email: 'moved@example.com' });
+    await repository.logout();
+    await expect(repository.login('invited@example.com', 'invite-password')).rejects.toMatchObject({
+      code: 'INVALID_CREDENTIALS',
+    });
+    await repository.login('moved@example.com', 'invite-password');
+    await repository.logout();
+    await repository.login('owner@mealplanner.dev', 'mealplanner-demo');
+    await repository.invite('reserved@example.com', 'member');
+    await expect(
+      repository.updateProfile({ name: 'Avery Stone', email: ' RESERVED@example.com ' }),
+    ).rejects.toMatchObject({ code: 'DUPLICATE' });
+  });
+  it('transfers ownership and removes the former owner without rewriting invitation history', async () => {
+    const repository = await signedIn();
+    const originalInviter = (await repository.getData()).invitations[0].invitedBy;
+    await repository.changeRole('user-member', 'owner');
+    await repository.logout();
+    await repository.login('member@mealplanner.dev', 'mealplanner-demo');
+    await repository.removeMember('user-owner');
+    const data = await repository.getData();
+    expect(data.members.some((member) => member.id === 'user-owner')).toBe(false);
+    expect(data.invitations[0].invitedBy).toBe(originalInviter);
+  });
   it('recovers corrupt storage without reading it during server rendering', async () => {
     localStorage.setItem(STORAGE_KEY, 'bad json');
     const repository = new LocalStorageMealPlannerRepository();
@@ -128,6 +177,56 @@ describe('local repository integrity and authorization', () => {
     await expect(repository.removeMember('user-owner')).rejects.toMatchObject({
       code: 'ONLY_OWNER',
     });
+  });
+});
+describe('calendar dates and archived form references', () => {
+  it('computes household dates deterministically on both sides of UTC', () => {
+    const instant = new Date('2026-08-13T02:00:00Z');
+    expect(calendarDateInTimeZone(instant, 'America/New_York')).toBe('2026-08-12');
+    expect(calendarDateInTimeZone(instant, 'Asia/Jerusalem')).toBe('2026-08-13');
+    expect(formatCalendarDate('2026-08-03', { weekday: 'short' })).toBe('Mon');
+  });
+  it('rejects invalid household timezones', async () => {
+    const repository = await signedIn();
+    await expect(repository.updateHousehold({ timezone: 'Not/A_Zone' })).rejects.toThrow();
+  });
+  it('uses household servings and retains only referenced archived choices', async () => {
+    const repository = await signedIn();
+    await repository.updateHousehold({ defaultServings: 7 });
+    const data = await repository.getData();
+    const referencedIngredient = data.ingredients.find(
+      (ingredient) => ingredient.id === data.recipes[0].ingredients[0].ingredientId,
+    )!;
+    const unrelatedIngredient = data.ingredients.find(
+      (ingredient) =>
+        !data.recipes[0].ingredients.some((row) => row.ingredientId === ingredient.id),
+    )!;
+    referencedIngredient.status = 'archived';
+    unrelatedIngredient.status = 'archived';
+    data.recipes[0].status = 'archived';
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    render(
+      <RepositoryProvider>
+        <RecipeForm onSaved={() => undefined} />
+      </RepositoryProvider>,
+    );
+    await waitFor(() => expect(screen.getByLabelText('Servings')).toHaveValue(7));
+    expect(screen.queryByText(`${referencedIngredient.name} (archived)`)).not.toBeInTheDocument();
+    render(
+      <RepositoryProvider>
+        <RecipeForm item={data.recipes[0]} onSaved={() => undefined} />
+      </RepositoryProvider>,
+    );
+    expect(
+      (await screen.findAllByText(`${referencedIngredient.name} (archived)`)).length,
+    ).toBeGreaterThan(0);
+    expect(screen.queryByText(`${unrelatedIngredient.name} (archived)`)).not.toBeInTheDocument();
+    render(
+      <RepositoryProvider>
+        <MealForm plan={data.plans[0]} meal={data.plans[0].entries[0]} onSaved={() => undefined} />
+      </RepositoryProvider>,
+    );
+    expect(await screen.findByText(`${data.recipes[0].name} (archived)`)).toBeInTheDocument();
   });
 });
 describe('invitation states with fake time', () => {
@@ -284,5 +383,17 @@ describe('HTTP repository authentication and validation', () => {
     const repository = new HttpMealPlannerRepository('/api/v1', fetcher as typeof fetch);
     await repository.login(user.email, 'password');
     await expect(repository.deleteIngredient('ingredient-id')).resolves.toBeUndefined();
+  });
+  it('clears an established session after refresh proves a protected request unauthorized', async () => {
+    const unauthorized = () =>
+      jsonResponse({ error: { code: 'UNAUTHORIZED', message: 'Expired.', details: [] } }, 401);
+    const fetcher = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse(envelope))
+      .mockImplementation(unauthorized);
+    const repository = new HttpMealPlannerRepository('/api/v1', fetcher as typeof fetch);
+    await repository.login(user.email, 'password');
+    await expect(repository.getData()).rejects.toMatchObject({ code: 'UNAUTHORIZED' });
+    await expect(repository.currentUser()).resolves.toBeNull();
   });
 });

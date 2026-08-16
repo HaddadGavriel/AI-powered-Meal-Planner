@@ -17,7 +17,7 @@ const navigation = [
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { user, loading, error, message, repo } = useMealPlanner();
+  const { user, loading, error, message, repo, run } = useMealPlanner();
   if (loading) {
     return (
       <main className="container-page grid min-h-screen place-items-center" aria-busy="true">
@@ -66,9 +66,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <button
               className="underline"
               onClick={async () => {
-                await repo.logout();
-                router.push('/login');
-                router.refresh();
+                await run(() => repo.logout());
+                router.replace('/login');
               }}
             >
               Sign out

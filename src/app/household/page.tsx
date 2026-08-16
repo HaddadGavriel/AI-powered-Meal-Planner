@@ -9,7 +9,7 @@ export default function Household() {
   const [email, setEmail] = useState('');
   const [role, setRole] = useState<'member' | 'administrator'>('member');
   const [acceptanceUrls, setAcceptanceUrls] = useState<Record<string, string>>({});
-  if (!data) return null;
+  if (!data) return <AppShell>{null}</AppShell>;
   const canManage = user?.role !== 'member';
   return (
     <AppShell>

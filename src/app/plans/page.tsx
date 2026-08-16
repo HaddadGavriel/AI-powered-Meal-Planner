@@ -5,16 +5,18 @@ import { MealForm, PlanForm } from '@/components/Forms';
 import { Badge, Button, Card, Empty } from '@/components/ui';
 import { useMealPlanner } from '@/data/RepositoryProvider';
 import type { WeeklyMealPlan } from '@/lib/types';
-const weekdayFormatter = new Intl.DateTimeFormat('en', { weekday: 'short' });
-const dateFormatter = new Intl.DateTimeFormat('en', { month: 'short', day: 'numeric' });
+import { formatCalendarDate } from '@/lib/calendar';
 function planDates(plan: WeeklyMealPlan) {
   const start = new Date(`${plan.weekStartDate}T00:00:00Z`);
   return Array.from({ length: 7 }, (_, index) => {
     const date = new Date(start);
     date.setUTCDate(start.getUTCDate() + index);
     return {
-      label: dateFormatter.format(date),
-      weekday: weekdayFormatter.format(date),
+      label: formatCalendarDate(date.toISOString().slice(0, 10), {
+        month: 'short',
+        day: 'numeric',
+      }),
+      weekday: formatCalendarDate(date.toISOString().slice(0, 10), { weekday: 'short' }),
       value: date.toISOString().slice(0, 10),
     };
   });
@@ -25,7 +27,7 @@ export default function Plans() {
   const [edit, setEdit] = useState<string | null>(null);
   const [meal, setMeal] = useState<string | null>(null);
   const [editMeal, setEditMeal] = useState<string | null>(null);
-  if (!data) return null;
+  if (!data) return <AppShell>{null}</AppShell>;
   const canManage = user?.role !== 'member';
   return (
     <AppShell>

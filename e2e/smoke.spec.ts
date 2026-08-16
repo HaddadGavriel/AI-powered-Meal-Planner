@@ -108,3 +108,25 @@ test('member sees shopping data without mutation controls', async ({ page }) => 
   await expect(page.getByLabel('Quantity')).toHaveCount(0);
   await expect(page.getByLabel('Unit')).toHaveCount(0);
 });
+
+test('logout clears protected data even after browser back', async ({ page }) => {
+  await signInAs(page, 'owner@mealplanner.dev');
+  await page.getByRole('button', { name: 'Sign out' }).click();
+  await expect(page).toHaveURL(/\/login$/);
+  await page.goBack();
+  await expect(page.getByText('Avery Stone · owner')).toHaveCount(0);
+  await page.goto('/dashboard');
+  await expect(page.getByRole('heading', { name: 'Session required' })).toBeVisible();
+});
+
+test('dummy-data reset clears protected data even after browser back', async ({ page }) => {
+  await signInAs(page, 'owner@mealplanner.dev');
+  await page.getByRole('link', { name: 'Settings' }).click();
+  page.on('dialog', (dialog) => dialog.accept());
+  await page.getByRole('button', { name: 'Reset dummy data' }).click();
+  await expect(page).toHaveURL(/\/login$/);
+  await page.goBack();
+  await expect(page.getByText('Avery Stone · owner')).toHaveCount(0);
+  await page.goto('/settings');
+  await expect(page.getByRole('heading', { name: 'Session required' })).toBeVisible();
+});

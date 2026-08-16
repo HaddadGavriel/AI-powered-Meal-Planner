@@ -81,7 +81,7 @@ export default function Shopping() {
     category: 'Other',
   });
   const [manualError, setManualError] = useState('');
-  if (!data) return null;
+  if (!data) return <AppShell>{null}</AppShell>;
   const canManage = user?.role !== 'member';
   const selectedPlanId = planId || data.plans[0]?.id || '';
   const list = data.shoppingLists.find((candidate) => candidate.planId === selectedPlanId);

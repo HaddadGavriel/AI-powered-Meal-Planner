@@ -6,7 +6,7 @@ import { useMealPlanner } from '@/data/RepositoryProvider';
 export default function Activity() {
   const { data } = useMealPlanner(),
     [type, setType] = useState('all');
-  if (!data) return null;
+  if (!data) return <AppShell>{null}</AppShell>;
   const events = data.auditEvents.filter((x) => type === 'all' || x.entityType === type),
     types = [...new Set(data.auditEvents.map((x) => x.entityType))];
   return (
