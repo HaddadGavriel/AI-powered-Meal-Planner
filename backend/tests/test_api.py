@@ -4,13 +4,13 @@ from urllib.parse import urlparse
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
 from app.database import SessionLocal
 from app.models import DietaryProfile, Household, Invitation, Membership, Role, User
 from app.schemas import BootstrapResponse, InvitationResponse, MemberResponse
-from app.seed import seed
+from app.seed import SEED_ACCOUNTS, SEED_HOUSEHOLD_ID, seed
 from tests.helpers import login
 
 
@@ -342,30 +342,57 @@ def test_invalid_household_timezone_is_rejected(client: TestClient) -> None:
 
 
 def test_seed_reuses_renamed_household_without_overwriting_changes(client: TestClient) -> None:
-    headers = login(client)
-    renamed = client.patch(
-        "/api/v1/household", headers=headers, json={"name": "Our Renamed Household"}
-    )
-    assert renamed.status_code == 200
-    household_id = renamed.json()["id"]
+    seed()
 
-    def snapshot() -> tuple[int, int, int, int, set[str]]:
+    def snapshot() -> tuple[frozenset[uuid.UUID], ...]:
         with SessionLocal() as db:
             return (
-                db.scalar(select(func.count()).select_from(Household)) or 0,
-                db.scalar(select(func.count()).select_from(User)) or 0,
-                db.scalar(select(func.count()).select_from(Membership)) or 0,
-                db.scalar(select(func.count()).select_from(DietaryProfile)) or 0,
-                {str(value) for value in db.scalars(select(Household.id))},
+                frozenset(db.scalars(select(Household.id))),
+                frozenset(db.scalars(select(User.id))),
+                frozenset(db.scalars(select(Membership.id))),
+                frozenset(db.scalars(select(DietaryProfile.id))),
             )
 
     before = snapshot()
+    with SessionLocal() as db:
+        household = db.get(Household, SEED_HOUSEHOLD_ID)
+        assert household
+        household.name = "Our Renamed Household"
+        for index, record in enumerate(SEED_ACCOUNTS):
+            user = db.get(User, record.user_id)
+            membership = db.get(Membership, record.membership_id)
+            profile = db.get(DietaryProfile, record.dietary_profile_id)
+            assert user and membership and profile
+            user.name = f"Edited Person {index}"
+            user.email = f"edited-{index}@example.dev"
+            user.password_hash = f"changed-password-hash-{index}"
+            membership.role = Role.member if index else Role.owner
+            profile.dietary_patterns = [f"edited-pattern-{index}"]
+            profile.preferences = f"Edited preferences {index}"
+            if index == 2:
+                membership.status = "inactive"
+        db.commit()
+
     seed()
     seed()
     after = snapshot()
 
     assert after == before
-    assert after[4] == {household_id}
     with SessionLocal() as db:
-        household = db.get(Household, uuid.UUID(household_id))
+        household = db.get(Household, SEED_HOUSEHOLD_ID)
         assert household and household.name == "Our Renamed Household"
+        for index, record in enumerate(SEED_ACCOUNTS):
+            user = db.get(User, record.user_id)
+            membership = db.get(Membership, record.membership_id)
+            profile = db.get(DietaryProfile, record.dietary_profile_id)
+            assert user and membership and profile
+            assert user.name == f"Edited Person {index}"
+            assert user.email == f"edited-{index}@example.dev"
+            assert user.password_hash == f"changed-password-hash-{index}"
+            assert membership.role == (Role.member if index else Role.owner)
+            assert membership.status == ("inactive" if index == 2 else "active")
+            assert profile.dietary_patterns == [f"edited-pattern-{index}"]
+            assert profile.preferences == f"Edited preferences {index}"
+        assert not db.scalar(
+            select(User.id).where(User.email.in_([r.email for r in SEED_ACCOUNTS]))
+        )
