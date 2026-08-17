@@ -119,7 +119,7 @@ def member_json(m: Membership) -> dict[str, object]:
 
 
 def household_json(h: Household) -> dict[str, object]:
-    value = {
+    value: dict[str, object] = {
         "id": str(h.id),
         "name": h.name,
         "timezone": h.timezone,
@@ -137,7 +137,7 @@ def invitation_json(i: Invitation) -> dict[str, object]:
         if i.status == InvitationStatus.pending and i.expires_at <= datetime.now(UTC)
         else i.status
     )
-    value = {
+    value: dict[str, object] = {
         "id": str(i.id),
         "householdId": str(i.household_id),
         "email": i.email,
@@ -757,7 +757,7 @@ def bootstrap(
 
 
 def audit_json(e: AuditEvent) -> dict[str, object]:
-    value = {
+    value: dict[str, object] = {
         "id": str(e.id),
         "action": e.action,
         "entityType": e.entity_type,
