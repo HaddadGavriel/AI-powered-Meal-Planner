@@ -1,7 +1,15 @@
+import uuid
+from datetime import UTC, datetime, timedelta
 from urllib.parse import urlparse
 
-from conftest import login
+import pytest
+from conftest import SessionLocal, login
 from fastapi.testclient import TestClient
+from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
+
+from app.models import Household, Invitation, Membership, Role, User
+from app.schemas import BootstrapResponse, InvitationResponse, MemberResponse
 
 
 def test_auth_rotation_logout_and_error_envelope(client: TestClient) -> None:
@@ -147,3 +155,184 @@ def test_audit_is_filtered_to_authenticated_household(client: TestClient) -> Non
     body = events.json()
     assert body["pageSize"] == 2
     assert all(item["action"] == "auth.login" for item in body["items"])
+
+
+def test_removed_user_cannot_login_or_refresh(client: TestClient) -> None:
+    member_client = TestClient(client.app)
+    member_headers = login(member_client, "member@mealplanner.dev")
+    assert member_headers
+    owner_headers = login(client)
+    member_id = next(
+        row["id"]
+        for row in client.get("/api/v1/household/members", headers=owner_headers).json()["items"]
+        if row["email"] == "member@mealplanner.dev"
+    )
+    assert (
+        client.delete(f"/api/v1/household/members/{member_id}", headers=owner_headers).status_code
+        == 204
+    )
+    assert member_client.post("/api/v1/auth/refresh").status_code == 401
+    assert (
+        member_client.post(
+            "/api/v1/auth/login",
+            json={"email": "member@mealplanner.dev", "password": "mealplanner-demo"},
+        ).status_code
+        == 401
+    )
+    assert (
+        client.post(
+            "/api/v1/household/invitations",
+            headers=owner_headers,
+            json={"email": "member@mealplanner.dev", "proposedRole": "member"},
+        ).status_code
+        == 409
+    )
+
+
+def test_one_membership_per_user_and_cross_household_isolation(client: TestClient) -> None:
+    headers = login(client)
+    with SessionLocal() as db:
+        owner = db.scalar(select(User).where(User.email == "owner@mealplanner.dev"))
+        assert owner
+        second = Household(
+            name="Second Household",
+            timezone="UTC",
+            default_servings=2,
+            updated_at=datetime.now(UTC),
+        )
+        db.add(second)
+        db.commit()
+        db.refresh(second)
+        db.refresh(owner)
+        db.add(
+            Membership(
+                household_id=second.id,
+                user_id=owner.id,
+                role=Role.member,
+                status="active",
+                joined_at=datetime.now(UTC),
+                user=owner,
+            )
+        )
+        with pytest.raises(IntegrityError):
+            db.commit()
+        db.rollback()
+
+        other_user = User(email="other@example.com", name="Other User", password_hash="unused")
+        db.add(other_user)
+        db.flush()
+        other_member = Membership(
+            household_id=second.id,
+            user_id=other_user.id,
+            role=Role.member,
+            status="active",
+            joined_at=datetime.now(UTC),
+            user=other_user,
+        )
+        db.add(other_member)
+        db.commit()
+        other_id = other_member.id
+    assert (
+        client.patch(
+            f"/api/v1/household/members/{other_id}", headers=headers, json={"role": "administrator"}
+        ).status_code
+        == 404
+    )
+
+
+def test_identifiers_and_response_models_match(client: TestClient) -> None:
+    headers = login(client)
+    me = MemberResponse.model_validate(client.get("/api/v1/users/me", headers=headers).json())
+    invitation = client.post(
+        "/api/v1/household/invitations",
+        headers=headers,
+        json={"email": "identifier@example.com", "proposedRole": "member"},
+    )
+    summary = InvitationResponse.model_validate(invitation.json())
+    assert summary.invitedBy == me.id
+    bootstrap = BootstrapResponse.model_validate(
+        client.get("/api/v1/bootstrap", headers=headers).json()
+    )
+    assert bootstrap.dietaryProfiles
+    assert {profile.memberId for profile in bootstrap.dietaryProfiles} <= {
+        member.id for member in bootstrap.members
+    }
+    assert all(
+        event.actorId is None or event.actorId in {m.id for m in bootstrap.members}
+        for event in bootstrap.auditEvents
+    )
+
+
+def test_expired_invitation_filters_and_rejects_mutations(client: TestClient) -> None:
+    headers = login(client)
+    invitation_id = client.post(
+        "/api/v1/household/invitations",
+        headers=headers,
+        json={"email": "expired@example.com", "proposedRole": "member"},
+    ).json()["id"]
+    link = client.post(
+        f"/api/v1/household/invitations/{invitation_id}/acceptance-link", headers=headers
+    ).json()["acceptanceUrl"]
+    token = urlparse(link).path.rsplit("/", 1)[-1]
+    with SessionLocal() as db:
+        row = db.get(Invitation, uuid.UUID(invitation_id))
+        assert row
+        row.expires_at = datetime.now(UTC) - timedelta(seconds=1)
+        db.commit()
+    assert client.get(f"/api/v1/invitations/{token}").json()["status"] == "expired"
+    expired = client.get("/api/v1/household/invitations?status=expired", headers=headers).json()[
+        "items"
+    ]
+    assert any(row["id"] == invitation_id for row in expired)
+    assert (
+        client.post(
+            f"/api/v1/household/invitations/{invitation_id}/resend", headers=headers
+        ).status_code
+        == 410
+    )
+    assert (
+        client.delete(f"/api/v1/household/invitations/{invitation_id}", headers=headers).status_code
+        == 410
+    )
+    assert (
+        client.post(
+            f"/api/v1/invitations/{token}/accept",
+            json={"name": "Expired User", "password": "chosen-password"},
+        ).status_code
+        == 410
+    )
+
+
+@pytest.mark.parametrize("name", ["  ", "\t\n"])
+def test_whitespace_names_are_rejected(client: TestClient, name: str) -> None:
+    headers = login(client)
+    assert client.patch("/api/v1/users/me", headers=headers, json={"name": name}).status_code == 422
+    assert (
+        client.patch("/api/v1/household", headers=headers, json={"name": name}).status_code == 422
+    )
+    invitation_id = client.post(
+        "/api/v1/household/invitations",
+        headers=headers,
+        json={"email": f"whitespace-{len(name)}@example.com", "proposedRole": "member"},
+    ).json()["id"]
+    link = client.post(
+        f"/api/v1/household/invitations/{invitation_id}/acceptance-link", headers=headers
+    ).json()["acceptanceUrl"]
+    token = urlparse(link).path.rsplit("/", 1)[-1]
+    assert (
+        client.post(
+            f"/api/v1/invitations/{token}/accept",
+            json={"name": name, "password": "chosen-password"},
+        ).status_code
+        == 422
+    )
+
+
+def test_invalid_household_timezone_is_rejected(client: TestClient) -> None:
+    headers = login(client)
+    assert (
+        client.patch(
+            "/api/v1/household", headers=headers, json={"timezone": "Mars/Olympus"}
+        ).status_code
+        == 422
+    )

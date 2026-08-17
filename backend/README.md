@@ -1,10 +1,11 @@
 # Meal Planner backend
 
 This directory is the deliberately small FastAPI/PostgreSQL supporting backend. `app/models.py`
-contains identity, membership, dietary, session, invitation, and audit persistence; `app/api.py`
-contains the conventional route/service flow; `app/security.py` owns credentials; and Alembic owns
-schema changes. Core meal-planning data is behind the explicit empty-array bootstrap boundary and is
-listed in `RESERVED_FOR_USER.md`.
+contains identity, membership, dietary, session, invitation, and audit persistence. `app/routers/`
+contains focused auth, household, invitation, bootstrap, and audit routes; `app/api_support.py` holds
+only their shared authentication, serialization, and audit helpers. `app/security.py` owns
+credentials, and Alembic owns schema changes. Core meal-planning data is behind the explicit
+empty-array bootstrap boundary and is listed in `RESERVED_FOR_USER.md`.
 
 ## Local setup
 
@@ -21,8 +22,9 @@ uvicorn app.main:app --reload
 
 Run commands from `backend/`. The seed is explicit and idempotent. It creates only the documented
 owner/admin/member accounts using password `mealplanner-demo`; it never creates core resources.
-The installable Python distribution intentionally contains only `app`; the adjacent `alembic`
-directory is migration infrastructure loaded from the repository checkout, not an import package.
+The installable Python distribution intentionally contains only `app` and its focused router
+subpackage; the adjacent `alembic` directory is migration infrastructure loaded from the repository
+checkout, not an import package.
 
 Configuration uses `MEAL_PLANNER_` variables shown in the root `.env.example`. Set a long random
 `JWT_SECRET`, a PostgreSQL `DATABASE_URL`, `COOKIE_SECURE=true`, the public `FRONTEND_URL`, and exact
@@ -53,6 +55,13 @@ appropriate for one capstone process only; production/multi-worker deployment sh
 a shared proxy/Redis limiter. Actual email delivery, account recovery, MFA, key rotation, session
 device management, and durable rate-limit state are intentionally deferred. Logs contain request
 metadata, never bodies, authorization headers, cookies, passwords, or capabilities.
+
+Each account has exactly one household membership because the current frontend has no household
+selector and access tokens intentionally carry no household context. Removing a member makes that
+membership inactive, revokes every active refresh session, and disables login. The historical account
+and membership are retained so audit/invitation attribution remains resolvable; an inactive account's
+email cannot be invited again. Account reactivation or transfer is intentionally a future explicit
+administrative flow rather than an implicit invitation side effect.
 
 Audit events have no write route and are appended in the same transaction as supporting mutations.
 Application database credentials should not have UPDATE/DELETE permissions on `audit_events` in a

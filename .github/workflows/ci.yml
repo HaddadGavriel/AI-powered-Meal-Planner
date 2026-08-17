@@ -21,6 +21,7 @@ jobs:
       - uses: actions/setup-python@v5
         with: { python-version: '3.12', cache: pip }
       - run: pip install -e '.[dev]'
+      - run: docker build -t meal-planner-api:test .
       - run: ruff check .
       - run: ruff format --check .
       - run: mypy app
@@ -28,6 +29,15 @@ jobs:
       - run: pytest
       - run: alembic downgrade base
       - run: alembic upgrade head
+  docker-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker compose up --build --wait
+      - run: docker compose exec -T api meal-planner-seed
+      - run: curl --fail --retry 10 --retry-delay 2 http://localhost:8000/api/v1/health
+      - if: always()
+        run: docker compose down --volumes
   frontend:
     runs-on: ubuntu-latest
     steps:

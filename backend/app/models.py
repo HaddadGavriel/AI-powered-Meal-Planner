@@ -56,7 +56,10 @@ class User(Base):
 
 class Membership(Base):
     __tablename__ = "memberships"
-    __table_args__ = (UniqueConstraint("household_id", "user_id"),)
+    __table_args__ = (
+        UniqueConstraint("household_id", "user_id"),
+        UniqueConstraint("user_id", name="uq_memberships_user_id"),
+    )
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid4)
     household_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("households.id", ondelete="CASCADE"), index=True
