@@ -3,13 +3,14 @@ from datetime import UTC, datetime, timedelta
 from urllib.parse import urlparse
 
 import pytest
-from conftest import SessionLocal, login
 from fastapi.testclient import TestClient
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
+from app.database import SessionLocal
 from app.models import Household, Invitation, Membership, Role, User
 from app.schemas import BootstrapResponse, InvitationResponse, MemberResponse
+from tests.helpers import login
 
 
 def test_auth_rotation_logout_and_error_envelope(client: TestClient) -> None:
