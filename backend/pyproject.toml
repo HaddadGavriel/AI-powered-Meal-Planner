@@ -1,0 +1,25 @@
+[project]
+name = "meal-planner-backend"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = [
+  "fastapi==0.116.1", "uvicorn[standard]==0.35.0", "sqlalchemy==2.0.43",
+  "psycopg[binary]==3.2.9", "alembic==1.16.4", "pydantic-settings==2.10.1",
+  "pwdlib[argon2]==0.2.1", "PyJWT==2.10.1", "email-validator==2.2.0"
+]
+[project.optional-dependencies]
+dev = ["pytest==8.4.1", "httpx==0.28.1", "ruff==0.12.9", "mypy==1.17.1"]
+[project.scripts]
+meal-planner-seed = "app.seed:main"
+[tool.ruff]
+line-length = 100
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
+ignore = ["B008"] # FastAPI intentionally declares dependencies in parameter defaults.
+[tool.mypy]
+python_version = "3.12"
+plugins = ["pydantic.mypy", "sqlalchemy.ext.mypy.plugin"]
+strict = true
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"

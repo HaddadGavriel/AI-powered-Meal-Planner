@@ -1,6 +1,8 @@
-# Meal Planner frontend
+# Meal Planner
 
-A frontend-only household meal-planning demo built with Next.js, React, TypeScript, Tailwind CSS, and Zod. Stage 0 intentionally includes **no backend, database, API routes, server actions, real authentication/email, AI, billing, or medical-safety guarantees**.
+A Next.js household meal-planning frontend with a deliberately small supporting FastAPI/PostgreSQL
+backend. Mock mode remains the default. Core meal-planning persistence and business logic are
+intentionally reserved for the capstone learner; see [`backend/RESERVED_FOR_USER.md`](backend/RESERVED_FOR_USER.md).
 
 ## Implemented flows
 
@@ -50,4 +52,7 @@ NEXT_PUBLIC_MEAL_PLANNER_DATA_MODE=http
 NEXT_PUBLIC_MEAL_PLANNER_API_URL=https://api.example.com/api/v1
 ```
 
-Implement the documented FastAPI/PostgreSQL contract outside this repository, configure the two HTTP values, and restart/rebuild the frontend. The HTTP adapter does not create endpoints and the backend remains responsible for auth, authorization, integrity, concurrency, and authoritative audit history.
+Start PostgreSQL and the API with `docker compose up --build`, explicitly seed with
+`docker compose exec api meal-planner-seed`, configure the two HTTP values, and restart the frontend.
+Backend setup, migrations, security design, and checks are documented in
+[`backend/README.md`](backend/README.md).
