@@ -1,6 +1,4 @@
-import time
 import uuid
-from collections import defaultdict, deque
 from datetime import UTC, datetime, timedelta
 
 import jwt
@@ -24,6 +22,7 @@ from app.models import (
     Role,
     User,
 )
+from app.rate_limit import rate_limiter
 from app.schemas import (
     AcceptInvitation,
     DietaryInput,
@@ -46,17 +45,10 @@ from app.security import (
 
 router = APIRouter(prefix="/api/v1")
 bearer = HTTPBearer(auto_error=False)
-attempts: dict[str, deque[float]] = defaultdict(deque)
 
 
 def limited(key: str, maximum: int = 20) -> None:
-    now = time.monotonic()
-    bucket = attempts[key]
-    while bucket and bucket[0] < now - 60:
-        bucket.popleft()
-    if len(bucket) >= maximum:
-        raise ApiError(429, "RATE_LIMITED", "Too many requests. Try again later.")
-    bucket.append(now)
+    rate_limiter.check(key, maximum)
 
 
 def current_membership(

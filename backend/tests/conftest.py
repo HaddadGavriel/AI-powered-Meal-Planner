@@ -13,11 +13,15 @@ os.environ.setdefault("MEAL_PLANNER_JWT_SECRET", "test-secret-at-least-thirty-tw
 
 from app.database import Base, engine  # noqa: E402
 from app.main import app  # noqa: E402
+from app.rate_limit import rate_limiter  # noqa: E402
 from app.seed import seed  # noqa: E402
 
 
 @pytest.fixture(autouse=True)
 def database():
+    # The API limiter intentionally survives requests in production. Tests must
+    # isolate that process-local state just as they isolate PostgreSQL state.
+    rate_limiter.reset()
     Base.metadata.drop_all(engine)
     Base.metadata.create_all(engine)
     seed()
@@ -25,6 +29,7 @@ def database():
     with engine.begin() as connection:
         for table in reversed(Base.metadata.sorted_tables):
             connection.execute(text(f'TRUNCATE TABLE "{table.name}" CASCADE'))
+    rate_limiter.reset()
 
 
 @pytest.fixture
