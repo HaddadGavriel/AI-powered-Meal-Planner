@@ -1,3 +1,7 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "meal-planner-backend"
 version = "0.1.0"
@@ -11,6 +15,14 @@ dependencies = [
 dev = ["pytest==8.4.1", "httpx==0.28.1", "ruff==0.12.9", "mypy==1.17.1"]
 [project.scripts]
 meal-planner-seed = "app.seed:main"
+
+# The Python distribution contains only the importable application package.
+# `alembic/` is migration infrastructure, not a Python package; declaring the
+# boundary explicitly also prevents future top-level tooling directories from
+# being included through setuptools' implicit namespace-package discovery.
+[tool.setuptools]
+packages = ["app"]
+
 [tool.ruff]
 line-length = 100
 [tool.ruff.lint]

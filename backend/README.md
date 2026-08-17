@@ -21,6 +21,8 @@ uvicorn app.main:app --reload
 
 Run commands from `backend/`. The seed is explicit and idempotent. It creates only the documented
 owner/admin/member accounts using password `mealplanner-demo`; it never creates core resources.
+The installable Python distribution intentionally contains only `app`; the adjacent `alembic`
+directory is migration infrastructure loaded from the repository checkout, not an import package.
 
 Configuration uses `MEAL_PLANNER_` variables shown in the root `.env.example`. Set a long random
 `JWT_SECRET`, a PostgreSQL `DATABASE_URL`, `COOKIE_SECURE=true`, the public `FRONTEND_URL`, and exact
