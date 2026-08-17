@@ -15,11 +15,12 @@ The supporting backend intentionally does **not** contain implementations for th
    item and safely matched checked-state preservation, and clear-checked behavior.
 
 Each model belongs in `app/models.py` (or a clearly named core model module once it becomes large),
-each schema change in a new Alembic revision, and each household-scoped route/service beside the
-supporting flow in `app/api.py`. Reuse `current_membership`, `elevated`, `ApiError`, pagination, and
-`audit`. Replace the four empty arrays in `bootstrap` with a small core-data provider only after the
-corresponding persistence exists. Follow the exact routes and business rules in
-`docs/backend-integration.md` and `docs/product-logic.md`.
+and every database change belongs in a new Alembic revision. Create focused router modules such as
+`app/routers/ingredients.py`, `recipes.py`, `meal_plans.py`, and `shopping_lists.py`, then register
+them through the existing API router in `app/api.py`. Keep substantial business logic out of routers.
+Reuse the existing authentication, authorization, `ApiError`, pagination, and audit helpers. Connect
+each completed resource to bootstrap only after its persistence and tests exist. Follow the exact
+routes and business rules in `docs/backend-integration.md` and `docs/product-logic.md`.
 
 Also reserved: all AI, embeddings, RAG, MCP, LangChain/LangGraph/agents, nutrition calculations,
 billing, and medical-safety claims. This file intentionally provides connection points and ordering,

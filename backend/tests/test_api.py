@@ -4,12 +4,13 @@ from urllib.parse import urlparse
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 
 from app.database import SessionLocal
-from app.models import Household, Invitation, Membership, Role, User
+from app.models import DietaryProfile, Household, Invitation, Membership, Role, User
 from app.schemas import BootstrapResponse, InvitationResponse, MemberResponse
+from app.seed import seed
 from tests.helpers import login
 
 
@@ -172,6 +173,7 @@ def test_removed_user_cannot_login_or_refresh(client: TestClient) -> None:
         client.delete(f"/api/v1/household/members/{member_id}", headers=owner_headers).status_code
         == 204
     )
+    seed()
     assert member_client.post("/api/v1/auth/refresh").status_code == 401
     assert (
         member_client.post(
@@ -337,3 +339,33 @@ def test_invalid_household_timezone_is_rejected(client: TestClient) -> None:
         ).status_code
         == 422
     )
+
+
+def test_seed_reuses_renamed_household_without_overwriting_changes(client: TestClient) -> None:
+    headers = login(client)
+    renamed = client.patch(
+        "/api/v1/household", headers=headers, json={"name": "Our Renamed Household"}
+    )
+    assert renamed.status_code == 200
+    household_id = renamed.json()["id"]
+
+    def snapshot() -> tuple[int, int, int, int, set[str]]:
+        with SessionLocal() as db:
+            return (
+                db.scalar(select(func.count()).select_from(Household)) or 0,
+                db.scalar(select(func.count()).select_from(User)) or 0,
+                db.scalar(select(func.count()).select_from(Membership)) or 0,
+                db.scalar(select(func.count()).select_from(DietaryProfile)) or 0,
+                {str(value) for value in db.scalars(select(Household.id))},
+            )
+
+    before = snapshot()
+    seed()
+    seed()
+    after = snapshot()
+
+    assert after == before
+    assert after[4] == {household_id}
+    with SessionLocal() as db:
+        household = db.get(Household, uuid.UUID(household_id))
+        assert household and household.name == "Our Renamed Household"

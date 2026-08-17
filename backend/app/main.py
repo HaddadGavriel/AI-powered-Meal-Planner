@@ -13,14 +13,18 @@ from app.errors import install_handlers
 
 class JsonFormatter(logging.Formatter):
     def format(self, record: logging.LogRecord) -> str:
-        return json.dumps(
-            {
-                "timestamp": self.formatTime(record),
-                "level": record.levelname,
-                "logger": record.name,
-                "message": record.getMessage(),
-            }
-        )
+        payload: dict[str, object] = {
+            "timestamp": self.formatTime(record),
+            "level": record.levelname,
+            "logger": record.name,
+            "message": record.getMessage(),
+        }
+        # Only copy this explicit, non-secret request metadata allowlist. In
+        # particular, never serialize arbitrary LogRecord extras.
+        for field in ("request_id", "method", "path", "status", "duration_ms"):
+            if hasattr(record, field):
+                payload[field] = getattr(record, field)
+        return json.dumps(payload)
 
 
 handler = logging.StreamHandler()
