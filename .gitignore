@@ -16,3 +16,13 @@ Thumbs.db
 .idea/
 
 *.tsbuildinfo
+
+# Python backend
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+backend/build/
+*.egg-info/
