@@ -38,6 +38,7 @@ class InvitationStatus(enum.StrEnum):
 
 class Household(Base):
     __tablename__ = "households"
+
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid4)
     name: Mapped[str] = mapped_column(String(120))
     timezone: Mapped[str] = mapped_column(String(80), default="UTC")
@@ -48,6 +49,7 @@ class Household(Base):
 
 class User(Base):
     __tablename__ = "users"
+
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid4)
     email: Mapped[str] = mapped_column(String(320), unique=True, index=True)
     name: Mapped[str] = mapped_column(String(120))
@@ -56,10 +58,12 @@ class User(Base):
 
 class Membership(Base):
     __tablename__ = "memberships"
+
     __table_args__ = (
         UniqueConstraint("household_id", "user_id"),
         UniqueConstraint("user_id", name="uq_memberships_user_id"),
     )
+
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid4)
     household_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("households.id", ondelete="CASCADE"), index=True
@@ -67,6 +71,7 @@ class Membership(Base):
     user_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("users.id", ondelete="CASCADE"), index=True
     )
+
     role: Mapped[Role] = mapped_column(Enum(Role, name="role"))
     status: Mapped[str] = mapped_column(String(16), default="active")
     joined_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
@@ -75,10 +80,12 @@ class Membership(Base):
 
 class DietaryProfile(Base):
     __tablename__ = "dietary_profiles"
+
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid4)
     membership_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("memberships.id", ondelete="CASCADE"), unique=True
     )
+
     dietary_patterns: Mapped[list[str]] = mapped_column(ARRAY(String), default=list)
     allergens: Mapped[list[str]] = mapped_column(ARRAY(String), default=list)
     excluded_ingredients: Mapped[list[str]] = mapped_column(ARRAY(String), default=list)
@@ -88,10 +95,12 @@ class DietaryProfile(Base):
 
 class RefreshSession(Base):
     __tablename__ = "refresh_sessions"
+
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid4)
     user_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("users.id", ondelete="CASCADE"), index=True
     )
+
     token_hash: Mapped[str] = mapped_column(String(64), unique=True)
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
@@ -99,6 +108,7 @@ class RefreshSession(Base):
 
 class Invitation(Base):
     __tablename__ = "invitations"
+
     __table_args__ = (
         Index(
             "uq_pending_invitation",
@@ -108,10 +118,12 @@ class Invitation(Base):
             postgresql_where=text("status = 'pending'"),
         ),
     )
+
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid4)
     household_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("households.id", ondelete="CASCADE"), index=True
     )
+
     email: Mapped[str] = mapped_column(String(320))
     proposed_role: Mapped[Role] = mapped_column(Enum(Role, name="role", create_type=False))
     invited_by: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True))
@@ -126,10 +138,12 @@ class Invitation(Base):
 
 class AuditEvent(Base):
     __tablename__ = "audit_events"
+
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid4)
     household_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("households.id", ondelete="CASCADE"), index=True
     )
+
     actor_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
     action: Mapped[str] = mapped_column(String(80), index=True)
     entity_type: Mapped[str] = mapped_column(String(80), index=True)

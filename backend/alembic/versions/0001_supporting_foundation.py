@@ -18,10 +18,11 @@ invitation_status = postgresql.ENUM(
 
 def upgrade() -> None:
     bind = op.get_bind()
+
     role.create(bind, checkfirst=False)
     invitation_status.create(bind, checkfirst=False)
-    op.create_table(
-        "households",
+    
+    op.create_table("households",
         sa.Column("id", postgresql.UUID(as_uuid=True), nullable=False),
         sa.Column("name", sa.String(120), nullable=False),
         sa.Column("timezone", sa.String(80), nullable=False),
@@ -30,8 +31,7 @@ def upgrade() -> None:
         sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
         sa.PrimaryKeyConstraint("id"),
     )
-    op.create_table(
-        "users",
+    op.create_table("users",
         sa.Column("id", postgresql.UUID(as_uuid=True), nullable=False),
         sa.Column("email", sa.String(320), nullable=False),
         sa.Column("name", sa.String(120), nullable=False),
@@ -39,8 +39,7 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint("id"),
     )
     op.create_index("ix_users_email", "users", ["email"], unique=True)
-    op.create_table(
-        "memberships",
+    op.create_table("memberships",
         sa.Column("id", postgresql.UUID(as_uuid=True), nullable=False),
         sa.Column("household_id", postgresql.UUID(as_uuid=True), nullable=False),
         sa.Column("user_id", postgresql.UUID(as_uuid=True), nullable=False),
@@ -55,8 +54,7 @@ def upgrade() -> None:
     )
     op.create_index("ix_memberships_household_id", "memberships", ["household_id"])
     op.create_index("ix_memberships_user_id", "memberships", ["user_id"])
-    op.create_table(
-        "dietary_profiles",
+    op.create_table("dietary_profiles",
         sa.Column("id", postgresql.UUID(as_uuid=True), nullable=False),
         sa.Column("membership_id", postgresql.UUID(as_uuid=True), nullable=False),
         sa.Column("dietary_patterns", postgresql.ARRAY(sa.String()), nullable=False),
@@ -68,8 +66,7 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint("membership_id"),
     )
-    op.create_table(
-        "refresh_sessions",
+    op.create_table("refresh_sessions",
         sa.Column("id", postgresql.UUID(as_uuid=True), nullable=False),
         sa.Column("user_id", postgresql.UUID(as_uuid=True), nullable=False),
         sa.Column("token_hash", sa.String(64), nullable=False),
@@ -80,8 +77,7 @@ def upgrade() -> None:
         sa.UniqueConstraint("token_hash"),
     )
     op.create_index("ix_refresh_sessions_user_id", "refresh_sessions", ["user_id"])
-    op.create_table(
-        "invitations",
+    op.create_table("invitations",
         sa.Column("id", postgresql.UUID(as_uuid=True), nullable=False),
         sa.Column("household_id", postgresql.UUID(as_uuid=True), nullable=False),
         sa.Column("email", sa.String(320), nullable=False),
@@ -97,15 +93,13 @@ def upgrade() -> None:
         sa.UniqueConstraint("token_hash"),
     )
     op.create_index("ix_invitations_household_id", "invitations", ["household_id"])
-    op.create_index(
-        "uq_pending_invitation",
+    op.create_index("uq_pending_invitation",
         "invitations",
         ["household_id", "email"],
         unique=True,
         postgresql_where=sa.text("status = 'pending'"),
     )
-    op.create_table(
-        "audit_events",
+    op.create_table("audit_events",
         sa.Column("id", postgresql.UUID(as_uuid=True), nullable=False),
         sa.Column("household_id", postgresql.UUID(as_uuid=True), nullable=False),
         sa.Column("actor_id", postgresql.UUID(as_uuid=True), nullable=True),
