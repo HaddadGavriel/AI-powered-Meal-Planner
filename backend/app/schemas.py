@@ -61,6 +61,12 @@ class HouseholdPatch(BaseModel):
             raise ValueError("Use a valid IANA timezone.") from error
         return value
 
+    @field_validator("name", "timezone", "defaultServings", mode="before")
+    @classmethod
+    def reject_null(cls, value: Any) -> Any:
+        if value is None:
+            raise ValueError("This field cannot be null.")
+        return value
 
 class RolePatch(BaseModel):
     role: Literal["owner", "administrator", "member"]
