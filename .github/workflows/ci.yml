@@ -26,6 +26,7 @@ jobs:
       - run: ruff format --check .
       - run: mypy app
       - run: alembic upgrade head
+      - run: alembic check
       - run: pytest
       - run: alembic downgrade base
       - run: alembic upgrade head
