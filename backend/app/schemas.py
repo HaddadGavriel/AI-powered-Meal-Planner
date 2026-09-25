@@ -68,6 +68,7 @@ class HouseholdPatch(BaseModel):
             raise ValueError("This field cannot be null.")
         return value
 
+
 class RolePatch(BaseModel):
     role: Literal["owner", "administrator", "member"]
 
