@@ -1,3 +1,4 @@
+from uuid import UUID
 from datetime import datetime
 from typing import Any, Literal
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
@@ -196,3 +197,37 @@ def page(items: list[object], page_number: int, page_size: int, total: int) -> d
 
 def iso(value: datetime) -> str:
     return value.isoformat().replace("+00:00", "Z")
+
+
+class IngredientCreate(BaseModel):
+    name: str = Field(min_length=2, max_length=120)
+
+    @field_validator("name", mode="before")
+    @classmethod
+    def strip_name(cls, value: str) -> str:
+        if not isinstance(value, str):
+            return value
+        
+        return normalized_name(value).title()
+
+
+class IngredientPatch(BaseModel):
+    name: str | None = Field(None, min_length=2, max_length=120)
+
+    @field_validator("name", mode="before")
+    @classmethod
+    def normalize_name(cls, value: str | None) -> str | None:
+        if value is None:
+            raise ValueError("Name cannot be null.")
+
+        if not isinstance(value, str):
+            return value
+
+        return normalized_name(value).title()
+
+
+class IngredientResponse(IngredientCreate):
+    id: UUID
+    householdId: UUID
+    createdAt: datetime
+
