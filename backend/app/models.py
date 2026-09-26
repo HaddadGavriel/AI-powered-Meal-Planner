@@ -11,6 +11,7 @@ from sqlalchemy import (
     String,
     Text,
     UniqueConstraint,
+    func,
     text,
 )
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB, UUID
@@ -157,7 +158,7 @@ class Ingredient(Base):
     __tablename__ = "ingredients"
 
     __table_args__ = (
-            UniqueConstraint("name", "household_id", name="uq_ingredient"),
+            UniqueConstraint("household_id", "name", name="uq_ingredient"),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid4)
@@ -165,4 +166,5 @@ class Ingredient(Base):
         ForeignKey("households.id", ondelete="CASCADE"), index=True
     )
     name: Mapped[str] = mapped_column(String(120))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 

@@ -1,4 +1,4 @@
-"""Adding ingredients table"""
+"""Adding ingredients"""
 from typing import Sequence, Union
 from alembic import op
 import sqlalchemy as sa
@@ -13,9 +13,10 @@ def upgrade() -> None:
     sa.Column('id', sa.UUID(), nullable=False),
     sa.Column('household_id', sa.UUID(), nullable=False),
     sa.Column('name', sa.String(length=120), nullable=False),
+    sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
     sa.ForeignKeyConstraint(['household_id'], ['households.id'], ondelete='CASCADE'),
     sa.PrimaryKeyConstraint('id'),
-    sa.UniqueConstraint('name', 'household_id', name='uq_ingredient')
+    sa.UniqueConstraint('household_id', 'name', name='uq_ingredient')
     )
     op.create_index(op.f('ix_ingredients_household_id'), 'ingredients', ['household_id'], unique=False)
     # ### end Alembic commands ###
