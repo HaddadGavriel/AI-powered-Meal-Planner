@@ -151,3 +151,18 @@ class AuditEvent(Base):
     timestamp: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
     summary: Mapped[str] = mapped_column(Text)
     details: Mapped[dict[str, object]] = mapped_column(JSONB, default=dict)
+
+
+class Ingredient(Base):
+    __tablename__ = "ingredients"
+
+    __table_args__ = (
+            UniqueConstraint("name", "household_id", name="uq_ingredient"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid4)
+    household_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("households.id", ondelete="CASCADE"), index=True
+    )
+    name: Mapped[str] = mapped_column(String(120))
+
