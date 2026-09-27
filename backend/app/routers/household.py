@@ -8,11 +8,9 @@ from sqlalchemy.orm import Session
 
 from app.api_support import (
     audit,
+    build_member_response,
     current_membership,
-    dietary_json,
     elevated,
-    household_json,
-    member_json,
 )
 from app.database import get_db
 from app.errors import ApiError
@@ -45,14 +43,14 @@ router = APIRouter()
 
 
 @router.get("/users/me", response_model=MemberResponse)
-def me(member: Membership = Depends(current_membership)) -> dict[str, object]:
-    return member_json(member)
+def me(member: Membership = Depends(current_membership)) -> MemberResponse:
+    return build_member_response(member)
 
 
 @router.patch("/users/me", response_model=MemberResponse)
 def patch_me(
     body: UserPatch, member: Membership = Depends(current_membership), db: Session = Depends(get_db)
-) -> dict[str, object]:
+) -> MemberResponse:
     if body.email is not None:
         email = normalize_email(str(body.email))
         collision = db.scalar(select(User.id).where(User.email == email, User.id != member.user_id))
@@ -76,7 +74,7 @@ def patch_me(
     except IntegrityError:
         db.rollback()
         raise ApiError(409, "DUPLICATE", "That email is already in use.") from None
-    return member_json(member)
+    return build_member_response(member)
 
 
 @router.patch("/household", response_model=HouseholdResponse, response_model_exclude_none=True)
@@ -84,29 +82,23 @@ def patch_household(
     body: HouseholdPatch,
     member: Membership = Depends(current_membership),
     db: Session = Depends(get_db),
-) -> dict[str, object]:
+) -> Household:
     elevated(member)
     h = db.get(Household, member.household_id)
     assert h
     fields = body.model_dump(exclude_unset=True)
-    for wire, attr in (
-        ("name", "name"),
-        ("timezone", "timezone"),
-        ("defaultServings", "default_servings"),
-        ("notes", "notes"),
-    ):
-        if wire in fields:
-            setattr(h, attr, fields[wire])
+    for field, value in fields.items():
+        setattr(h, field, value)
     h.updated_at = datetime.now(UTC)
     audit(db, member, h.id, "household.updated", "household", h.id, "Updated household.")
     db.commit()
-    return household_json(h)
+    return h
 
 
 @router.get("/household/members", response_model=MemberPageResponse)
 def members(
     page_number: int = Query(1, alias="page", ge=1),
-    page_size: int = Query(25, alias="pageSize", ge=1, le=100),
+    page_size: int = Query(25, ge=1, le=100),
     role: Role | None = None,
     status: str | None = None,
     search: str | None = None,
@@ -124,7 +116,7 @@ def members(
         db.scalars(query.order_by(User.name).offset((page_number - 1) * page_size).limit(page_size))
     )
     total = db.scalar(select(func.count()).select_from(query.subquery())) or 0
-    return page([member_json(x) for x in rows], page_number, page_size, total)
+    return page([build_member_response(x) for x in rows], page_number, page_size, total)
 
 
 @router.put("/household/members/{member_id}/dietary-profile", response_model=DietaryProfileResponse)
@@ -133,7 +125,7 @@ def put_diet(
     body: DietaryInput,
     actor: Membership = Depends(current_membership),
     db: Session = Depends(get_db),
-) -> dict[str, object]:
+) -> DietaryProfile:
     if actor.id != member_id:
         raise ApiError(403, "FORBIDDEN", "Members may edit only their own dietary profile.")
     profile = db.scalar(select(DietaryProfile).where(DietaryProfile.membership_id == member_id))
@@ -145,9 +137,9 @@ def put_diet(
         profile.preferences,
         profile.updated_at,
     ) = (
-        body.dietaryPatterns,
+        body.dietary_patterns,
         body.allergens,
-        body.excludedIngredients,
+        body.excluded_ingredients,
         body.preferences,
         datetime.now(UTC),
     )
@@ -161,7 +153,7 @@ def put_diet(
         "Updated dietary profile.",
     )
     db.commit()
-    return dietary_json(profile)
+    return profile
 
 
 @router.patch("/household/members/{member_id}", response_model=MemberResponse)
@@ -170,7 +162,7 @@ def patch_member(
     body: RolePatch,
     actor: Membership = Depends(current_membership),
     db: Session = Depends(get_db),
-) -> dict[str, object]:
+) -> MemberResponse:
     elevated(actor)
     target = db.scalar(
         select(Membership)
@@ -204,7 +196,7 @@ def patch_member(
         "Changed household role.",
     )
     db.commit()
-    return member_json(target)
+    return build_member_response(target)
 
 
 @router.delete("/household/members/{member_id}", status_code=204)

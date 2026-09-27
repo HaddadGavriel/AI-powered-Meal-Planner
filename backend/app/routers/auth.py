@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.api_support import (
     audit,
-    auth_json,
+    build_auth_response,
     current_membership,
     limited,
     set_refresh,
@@ -41,7 +41,7 @@ def health(db: Session = Depends(get_db)) -> dict[str, str]:
 @router.post("/auth/login", response_model=AuthResponse)
 def login(
     body: Login, request: Request, response: Response, db: Session = Depends(get_db)
-) -> dict[str, object]:
+) -> AuthResponse:
     limited(f"login:{request.client.host if request.client else 'unknown'}", 10)
     email = normalize_email(str(body.email))
     user = db.scalar(select(User).where(User.email == email))
@@ -55,7 +55,7 @@ def login(
     set_refresh(response, db, user.id)
     audit(db, member, member.household_id, "auth.login", "user", user.id, "Signed in.")
     db.commit()
-    return auth_json(member)
+    return build_auth_response(member)
 
 
 @router.post("/auth/refresh", response_model=AuthResponse)
@@ -64,7 +64,7 @@ def refresh(
     response: Response,
     token: str | None = Cookie(None, alias=get_settings().refresh_cookie_name),
     db: Session = Depends(get_db),
-) -> dict[str, object]:
+) -> AuthResponse:
     limited(f"refresh:{request.client.host if request.client else 'unknown'}", 30)
     session = db.scalar(
         select(RefreshSession)
@@ -86,7 +86,7 @@ def refresh(
         raise ApiError(401, "INVALID_REFRESH", "The refresh credential is invalid or expired.")
     set_refresh(response, db, session.user_id)
     db.commit()
-    return auth_json(member)
+    return build_auth_response(member)
 
 
 @router.post("/auth/logout", status_code=204)

@@ -157,9 +157,7 @@ class AuditEvent(Base):
 class Ingredient(Base):
     __tablename__ = "ingredients"
 
-    __table_args__ = (
-            UniqueConstraint("household_id", "name", name="uq_ingredient"),
-    )
+    __table_args__ = (UniqueConstraint("household_id", "name", name="uq_ingredient"),)
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid4)
     household_id: Mapped[uuid.UUID] = mapped_column(
@@ -167,4 +165,3 @@ class Ingredient(Base):
     )
     name: Mapped[str] = mapped_column(String(120))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
-
