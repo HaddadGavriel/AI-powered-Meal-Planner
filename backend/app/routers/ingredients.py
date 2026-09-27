@@ -3,10 +3,12 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.api_support import ApiError, audit, current_membership, elevated
+from app.api_support import audit, current_membership, elevated
 from app.database import get_db
+from app.errors import ApiError
 from app.models import Ingredient, IngredientCategory, IngredientStatus, IngredientUnit, Membership
 from app.schemas import IngredientCreate, IngredientResponse
+
 
 router = APIRouter(prefix="/ingredients")
 
