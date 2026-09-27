@@ -7,6 +7,9 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 
 RoleValue = Literal["owner", "administrator", "member"]
+IngredientCategoryValue = Literal["Produce", "Meat and poultry", "Seafood", "Dairy", "Grains", "Legumes", "Spices", "Condiments", "Baking", "Other"]
+IngredientUnitValue = Literal["grams", "kilograms", "milliliters", "liters", "units"]
+IngredientStatusValue = Literal["active", "archived"]
 
 
 def normalized_name(value: str) -> str:
@@ -203,6 +206,11 @@ def page(
 
 class IngredientCreate(BaseModel):
     name: str = Field(min_length=2, max_length=120)
+    category: IngredientCategoryValue
+    default_unit: IngredientUnitValue
+    status: IngredientStatusValue = "active"
+    allergens: list[str] = Field(default_factory=list)
+    notes: str | None = None
 
     @field_validator("name", mode="before")
     @classmethod
@@ -215,6 +223,11 @@ class IngredientCreate(BaseModel):
 
 class IngredientPatch(BaseModel):
     name: str | None = Field(None, min_length=2, max_length=120)
+    category: IngredientCategoryValue | None = None
+    default_unit: IngredientUnitValue | None = None
+    status: IngredientStatusValue | None = None
+    allergens: list[str] | None = None
+    notes: str | None = None
 
     @field_validator("name", mode="before")
     @classmethod
@@ -227,9 +240,16 @@ class IngredientPatch(BaseModel):
 
         return normalized_name(value).title()
 
+    @field_validator("category", "default_unit", "status", "allergens", mode="before")
+    @classmethod
+    def reject_null(cls, value: Any) -> Any:
+        if value is None:
+            raise ValueError("This field cannot be null.")
+        return value
+
 
 class IngredientResponse(IngredientCreate):
     id: UUID
-    household_id: UUID
     created_at: datetime
+    updated_at: datetime
     model_config = ConfigDict(from_attributes=True)
