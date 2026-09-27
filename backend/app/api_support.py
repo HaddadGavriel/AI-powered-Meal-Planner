@@ -12,8 +12,6 @@ from app.database import get_db
 from app.errors import ApiError
 from app.models import (
     AuditEvent,
-    DietaryProfile,
-    Household,
     Invitation,
     InvitationStatus,
     Membership,
@@ -21,9 +19,7 @@ from app.models import (
     Role,
 )
 from app.rate_limit import rate_limiter
-from app.schemas import (
-    iso,
-)
+from app.schemas import AuthResponse, MemberResponse
 from app.security import (
     access_token,
     decode_access,
@@ -84,51 +80,17 @@ def audit(
     )
 
 
-def member_json(m: Membership) -> dict[str, object]:
+def build_member_response(m: Membership) -> MemberResponse:
     initials = "".join(word[0] for word in m.user.name.split()[:2]).upper()
-    return {
-        "id": str(m.id),
-        "name": m.user.name,
-        "email": m.user.email,
-        "avatarInitials": initials,
-        "role": m.role.value,
-        "status": m.status,
-        "joinedAt": iso(m.joined_at),
-    }
-
-
-def household_json(h: Household) -> dict[str, object]:
-    value: dict[str, object] = {
-        "id": str(h.id),
-        "name": h.name,
-        "timezone": h.timezone,
-        "defaultServings": h.default_servings,
-        "updatedAt": iso(h.updated_at),
-    }
-    if h.notes is not None:
-        value["notes"] = h.notes
-    return value
-
-
-def invitation_json(i: Invitation) -> dict[str, object]:
-    status = (
-        InvitationStatus.expired
-        if i.status == InvitationStatus.pending and i.expires_at <= datetime.now(UTC)
-        else i.status
+    return MemberResponse(
+        id=m.id,
+        name=m.user.name,
+        email=m.user.email,
+        avatar_initials=initials,
+        role=m.role.value,
+        status=m.status,
+        joined_at=m.joined_at,
     )
-    value: dict[str, object] = {
-        "id": str(i.id),
-        "householdId": str(i.household_id),
-        "email": i.email,
-        "proposedRole": i.proposed_role.value,
-        "invitedBy": str(i.invited_by),
-        "createdAt": iso(i.created_at),
-        "expiresAt": iso(i.expires_at),
-        "status": status.value,
-    }
-    if i.accepted_at:
-        value["acceptedAt"] = iso(i.accepted_at)
-    return value
 
 
 def expire_invitations(db: Session, household_id: uuid.UUID | None = None) -> None:
@@ -143,18 +105,6 @@ def expire_invitations(db: Session, household_id: uuid.UUID | None = None) -> No
     if household_id is not None:
         query = query.where(Invitation.household_id == household_id)
     db.execute(query)
-
-
-def dietary_json(d: DietaryProfile) -> dict[str, object]:
-    return {
-        "id": str(d.id),
-        "memberId": str(d.membership_id),
-        "dietaryPatterns": d.dietary_patterns,
-        "allergens": d.allergens,
-        "excludedIngredients": d.excluded_ingredients,
-        "preferences": d.preferences,
-        "updatedAt": iso(d.updated_at),
-    }
 
 
 def set_refresh(response: Response, db: Session, user_id: uuid.UUID) -> None:
@@ -173,9 +123,9 @@ def set_refresh(response: Response, db: Session, user_id: uuid.UUID) -> None:
     )
 
 
-def auth_json(m: Membership) -> dict[str, object]:
+def build_auth_response(m: Membership) -> AuthResponse:
     token, expires = access_token(str(m.user_id))
-    return {"accessToken": token, "expiresAt": iso(expires), "user": member_json(m)}
+    return AuthResponse(access_token=token, expires_at=expires, user=build_member_response(m))
 
 
 def find_invitation(db: Session, invitation_id: uuid.UUID, actor: Membership) -> Invitation:
@@ -188,17 +138,3 @@ def find_invitation(db: Session, invitation_id: uuid.UUID, actor: Membership) ->
     if not invitation:
         raise ApiError(404, "NOT_FOUND", "Invitation not found.")
     return invitation
-
-
-def audit_json(e: AuditEvent) -> dict[str, object]:
-    value: dict[str, object] = {
-        "id": str(e.id),
-        "action": e.action,
-        "entityType": e.entity_type,
-        "entityId": e.entity_id,
-        "timestamp": iso(e.timestamp),
-        "summary": e.summary,
-    }
-    if e.actor_id:
-        value["actorId"] = str(e.actor_id)
-    return value

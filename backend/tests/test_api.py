@@ -54,7 +54,7 @@ def test_protection_email_atomicity_and_bootstrap_boundary(client: TestClient) -
     headers = login(client, "new-owner@mealplanner.dev")
     data = client.get("/api/v1/bootstrap", headers=headers).json()
     assert data["version"] == 2
-    assert data["ingredients"] == data["recipes"] == data["plans"] == data["shoppingLists"] == []
+    assert data["ingredients"] == data["recipes"] == data["plans"] == data["shopping_lists"] == []
     serialized = str(data).lower()
     assert (
         "password" not in serialized
@@ -93,17 +93,17 @@ def test_invitation_rotation_revocation_acceptance_and_login(client: TestClient)
     made = client.post(
         "/api/v1/household/invitations",
         headers=headers,
-        json={"email": "Invitee@Example.com", "proposedRole": "member"},
+        json={"email": "Invitee@Example.com", "proposed_role": "member"},
     )
     assert made.status_code == 201 and "token" not in str(made.json()).lower()
     invitation_id = made.json()["id"]
     link1 = client.post(
         f"/api/v1/household/invitations/{invitation_id}/acceptance-link", headers=headers
-    ).json()["acceptanceUrl"]
+    ).json()["acceptance_url"]
     token1 = urlparse(link1).path.rsplit("/", 1)[-1]
     link2 = client.post(
         f"/api/v1/household/invitations/{invitation_id}/acceptance-link", headers=headers
-    ).json()["acceptanceUrl"]
+    ).json()["acceptance_url"]
     token2 = urlparse(link2).path.rsplit("/", 1)[-1]
     assert client.get(f"/api/v1/invitations/{token1}").status_code == 404
     assert client.get(f"/api/v1/invitations/{token2}").status_code == 200
@@ -130,11 +130,11 @@ def test_invitation_rotation_revocation_acceptance_and_login(client: TestClient)
     second = client.post(
         "/api/v1/household/invitations",
         headers=headers,
-        json={"email": "revoked@example.com", "proposedRole": "administrator"},
+        json={"email": "revoked@example.com", "proposed_role": "administrator"},
     ).json()
     link = client.post(
         f"/api/v1/household/invitations/{second['id']}/acceptance-link", headers=headers
-    ).json()["acceptanceUrl"]
+    ).json()["acceptance_url"]
     token = urlparse(link).path.rsplit("/", 1)[-1]
     assert (
         client.delete(f"/api/v1/household/invitations/{second['id']}", headers=headers).status_code
@@ -152,10 +152,12 @@ def test_invitation_rotation_revocation_acceptance_and_login(client: TestClient)
 
 def test_audit_is_filtered_to_authenticated_household(client: TestClient) -> None:
     headers = login(client)
-    events = client.get("/api/v1/audit-events?page=1&pageSize=2&action=auth.login", headers=headers)
+    events = client.get(
+        "/api/v1/audit-events?page=1&page_size=2&action=auth.login", headers=headers
+    )
     assert events.status_code == 200
     body = events.json()
-    assert body["pageSize"] == 2
+    assert body["page_size"] == 2
     assert all(item["action"] == "auth.login" for item in body["items"])
 
 
@@ -186,7 +188,7 @@ def test_removed_user_cannot_login_or_refresh(client: TestClient) -> None:
         client.post(
             "/api/v1/household/invitations",
             headers=owner_headers,
-            json={"email": "member@mealplanner.dev", "proposedRole": "member"},
+            json={"email": "member@mealplanner.dev", "proposed_role": "member"},
         ).status_code
         == 409
     )
@@ -249,21 +251,41 @@ def test_identifiers_and_response_models_match(client: TestClient) -> None:
     invitation = client.post(
         "/api/v1/household/invitations",
         headers=headers,
-        json={"email": "identifier@example.com", "proposedRole": "member"},
+        json={"email": "identifier@example.com", "proposed_role": "member"},
     )
     summary = InvitationResponse.model_validate(invitation.json())
-    assert summary.invitedBy == me.id
+    assert summary.invited_by == me.id
     bootstrap = BootstrapResponse.model_validate(
         client.get("/api/v1/bootstrap", headers=headers).json()
     )
-    assert bootstrap.dietaryProfiles
-    assert {profile.memberId for profile in bootstrap.dietaryProfiles} <= {
+    assert bootstrap.dietary_profiles
+    assert {profile.membership_id for profile in bootstrap.dietary_profiles} <= {
         member.id for member in bootstrap.members
     }
     assert all(
-        event.actorId is None or event.actorId in {m.id for m in bootstrap.members}
-        for event in bootstrap.auditEvents
+        event.actor_id is None or event.actor_id in {m.id for m in bootstrap.members}
+        for event in bootstrap.audit_events
     )
+
+
+def test_orm_resources_serialize_through_response_models(client: TestClient) -> None:
+    headers = login(client)
+    household = client.patch("/api/v1/household", headers=headers, json={"default_servings": 6})
+    assert household.status_code == 200
+    assert household.json()["default_servings"] == 6
+    assert "defaultServings" not in household.json()
+
+    invitation = client.post(
+        "/api/v1/household/invitations",
+        headers=headers,
+        json={"email": "orm-response@example.com", "proposed_role": "member"},
+    )
+    assert invitation.status_code == 201
+    assert {"household_id", "proposed_role", "created_at", "expires_at"} <= invitation.json().keys()
+
+    audit_page = client.get("/api/v1/audit-events?page_size=1", headers=headers).json()
+    assert audit_page["page_size"] == 1
+    assert {"entity_type", "entity_id"} <= audit_page["items"][0].keys()
 
 
 def test_expired_invitation_filters_and_rejects_mutations(client: TestClient) -> None:
@@ -271,11 +293,11 @@ def test_expired_invitation_filters_and_rejects_mutations(client: TestClient) ->
     invitation_id = client.post(
         "/api/v1/household/invitations",
         headers=headers,
-        json={"email": "expired@example.com", "proposedRole": "member"},
+        json={"email": "expired@example.com", "proposed_role": "member"},
     ).json()["id"]
     link = client.post(
         f"/api/v1/household/invitations/{invitation_id}/acceptance-link", headers=headers
-    ).json()["acceptanceUrl"]
+    ).json()["acceptance_url"]
     token = urlparse(link).path.rsplit("/", 1)[-1]
     with SessionLocal() as db:
         row = db.get(Invitation, uuid.UUID(invitation_id))
@@ -316,11 +338,11 @@ def test_whitespace_names_are_rejected(client: TestClient, name: str) -> None:
     invitation_id = client.post(
         "/api/v1/household/invitations",
         headers=headers,
-        json={"email": f"whitespace-{len(name)}@example.com", "proposedRole": "member"},
+        json={"email": f"whitespace-{len(name)}@example.com", "proposed_role": "member"},
     ).json()["id"]
     link = client.post(
         f"/api/v1/household/invitations/{invitation_id}/acceptance-link", headers=headers
-    ).json()["acceptanceUrl"]
+    ).json()["acceptance_url"]
     token = urlparse(link).path.rsplit("/", 1)[-1]
     assert (
         client.post(

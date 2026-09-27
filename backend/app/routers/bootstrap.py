@@ -3,12 +3,9 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api_support import (
-    audit_json,
+    build_member_response,
     current_membership,
-    dietary_json,
-    household_json,
-    invitation_json,
-    member_json,
+    expire_invitations,
 )
 from app.database import get_db
 from app.models import (
@@ -41,6 +38,8 @@ def bootstrap(
     )
     ids = [x.id for x in memberships]
     profiles = list(db.scalars(select(DietaryProfile).where(DietaryProfile.membership_id.in_(ids))))
+    expire_invitations(db, member.household_id)
+    db.commit()
     invitations = (
         list(db.scalars(select(Invitation).where(Invitation.household_id == member.household_id)))
         if member.role != Role.member
@@ -56,13 +55,13 @@ def bootstrap(
     )
     return {
         "version": 2,
-        "household": household_json(household),
-        "members": [member_json(x) for x in memberships],
-        "invitations": [invitation_json(x) for x in invitations],
-        "dietaryProfiles": [dietary_json(x) for x in profiles],
+        "household": household,
+        "members": [build_member_response(x) for x in memberships],
+        "invitations": invitations,
+        "dietary_profiles": profiles,
         "ingredients": [],
         "recipes": [],
         "plans": [],
-        "shoppingLists": [],
-        "auditEvents": [audit_json(x) for x in events],
+        "shopping_lists": [],
+        "audit_events": events,
     }

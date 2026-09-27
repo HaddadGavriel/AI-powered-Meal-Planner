@@ -7,6 +7,7 @@ import {
   STORAGE_KEY,
 } from '@/data/repository';
 import { createSeedData, seedData } from '@/data/seed';
+import { toWireRequest } from '@/data/http-wire';
 import { calendarDateInTimeZone, formatCalendarDate } from '@/lib/calendar';
 import { RecipeForm, MealForm } from '@/components/Forms';
 import { RepositoryProvider } from '@/data/RepositoryProvider';
@@ -284,11 +285,19 @@ describe('invitation states with fake time', () => {
 describe('HTTP repository authentication and validation', () => {
   const user = seedData.members[0];
   const envelope = { accessToken: 'access-token', expiresAt: '2035-01-01T01:00:00.000Z', user };
+  const wireEnvelope = toWireRequest(envelope);
+  const wireData = {
+    ...(toWireRequest(seedData) as Record<string, unknown>),
+    dietary_profiles: seedData.dietaryProfiles.map(({ memberId, ...profile }) => ({
+      ...(toWireRequest(profile) as Record<string, unknown>),
+      membership_id: memberId,
+    })),
+  };
   it('stores login tokens in memory and attaches bearer auth to protected requests', async () => {
     const fetcher = vi
       .fn()
-      .mockResolvedValueOnce(jsonResponse(envelope))
-      .mockResolvedValueOnce(jsonResponse(seedData));
+      .mockResolvedValueOnce(jsonResponse(wireEnvelope))
+      .mockResolvedValueOnce(jsonResponse(wireData));
     const repository = new HttpMealPlannerRepository(
       'https://example.test/api/v1',
       fetcher as typeof fetch,
@@ -300,11 +309,25 @@ describe('HTTP repository authentication and validation', () => {
       'Bearer access-token',
     );
   });
+  it('translates snake_case household HTTP data at the repository boundary', async () => {
+    const updated = { ...seedData.household, defaultServings: 7 };
+    const fetcher = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse(wireEnvelope))
+      .mockResolvedValueOnce(jsonResponse(toWireRequest(updated)));
+    const repository = new HttpMealPlannerRepository('/api/v1', fetcher as typeof fetch);
+    await repository.login(user.email, 'password');
+
+    await expect(repository.updateHousehold({ defaultServings: 7 })).resolves.toEqual(updated);
+    expect(JSON.parse(String(fetcher.mock.calls[1][1]?.body))).toEqual({
+      default_servings: 7,
+    });
+  });
   it('refreshes with the HTTP-only cookie before bootstrap', async () => {
     const fetcher = vi
       .fn()
-      .mockResolvedValueOnce(jsonResponse(envelope))
-      .mockResolvedValueOnce(jsonResponse(seedData));
+      .mockResolvedValueOnce(jsonResponse(wireEnvelope))
+      .mockResolvedValueOnce(jsonResponse(wireData));
     const repository = new HttpMealPlannerRepository(
       'https://example.test/api/v1',
       fetcher as typeof fetch,
@@ -319,7 +342,7 @@ describe('HTTP repository authentication and validation', () => {
   it('rejects invalid successful responses', async () => {
     const fetcher = vi
       .fn()
-      .mockResolvedValueOnce(jsonResponse(envelope))
+      .mockResolvedValueOnce(jsonResponse(wireEnvelope))
       .mockResolvedValueOnce(jsonResponse({ version: 2 }));
     const repository = new HttpMealPlannerRepository('/api/v1', fetcher as typeof fetch);
     await expect(repository.getData()).rejects.toMatchObject({ code: 'INVALID_RESPONSE' });
@@ -348,7 +371,7 @@ describe('HTTP repository authentication and validation', () => {
   });
   it('keeps public invitation inspection independent from refresh and bootstrap', async () => {
     const invitation = seedData.invitations[0];
-    const fetcher = vi.fn().mockResolvedValue(jsonResponse(invitation));
+    const fetcher = vi.fn().mockResolvedValue(jsonResponse(toWireRequest(invitation)));
     const repository = new HttpMealPlannerRepository('/api/v1', fetcher as typeof fetch);
     await expect(repository.inspectInvitation('public-token')).resolves.toEqual(invitation);
     expect(fetcher).toHaveBeenCalledTimes(1);
@@ -357,11 +380,11 @@ describe('HTTP repository authentication and validation', () => {
   it('protects acceptance-link reads and establishes a session on acceptance', async () => {
     const fetcher = vi
       .fn()
-      .mockResolvedValueOnce(jsonResponse(envelope))
+      .mockResolvedValueOnce(jsonResponse(wireEnvelope))
       .mockResolvedValueOnce(
-        jsonResponse({ acceptanceUrl: 'https://app.test/invite/private-token' }),
+        jsonResponse({ acceptance_url: 'https://app.test/invite/private-token' }),
       )
-      .mockResolvedValueOnce(jsonResponse(envelope));
+      .mockResolvedValueOnce(jsonResponse(wireEnvelope));
     const repository = new HttpMealPlannerRepository('/api/v1', fetcher as typeof fetch);
     await repository.login(user.email, 'password');
     await expect(repository.getInvitationAcceptanceUrl('invitation-id')).resolves.toContain(
@@ -378,7 +401,7 @@ describe('HTTP repository authentication and validation', () => {
   it('handles 204 responses consistently', async () => {
     const fetcher = vi
       .fn()
-      .mockResolvedValueOnce(jsonResponse(envelope))
+      .mockResolvedValueOnce(jsonResponse(wireEnvelope))
       .mockResolvedValueOnce(new Response(null, { status: 204 }));
     const repository = new HttpMealPlannerRepository('/api/v1', fetcher as typeof fetch);
     await repository.login(user.email, 'password');
@@ -389,7 +412,7 @@ describe('HTTP repository authentication and validation', () => {
       jsonResponse({ error: { code: 'UNAUTHORIZED', message: 'Expired.', details: [] } }, 401);
     const fetcher = vi
       .fn()
-      .mockResolvedValueOnce(jsonResponse(envelope))
+      .mockResolvedValueOnce(jsonResponse(wireEnvelope))
       .mockImplementation(unauthorized);
     const repository = new HttpMealPlannerRepository('/api/v1', fetcher as typeof fetch);
     await repository.login(user.email, 'password');

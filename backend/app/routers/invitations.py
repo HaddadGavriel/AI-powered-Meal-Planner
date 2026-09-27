@@ -8,12 +8,11 @@ from sqlalchemy.orm import Session
 
 from app.api_support import (
     audit,
-    auth_json,
+    build_auth_response,
     current_membership,
     elevated,
     expire_invitations,
     find_invitation,
-    invitation_json,
     limited,
     set_refresh,
 )
@@ -57,7 +56,7 @@ def create_invitation(
     body: InvitationCreate,
     actor: Membership = Depends(current_membership),
     db: Session = Depends(get_db),
-) -> dict[str, object]:
+) -> Invitation:
     elevated(actor)
     email = normalize_email(str(body.email))
     now = datetime.now(UTC)
@@ -78,7 +77,7 @@ def create_invitation(
     invitation = Invitation(
         household_id=actor.household_id,
         email=email,
-        proposed_role=Role(body.proposedRole),
+        proposed_role=Role(body.proposed_role),
         invited_by=actor.id,
         token_hash=hash_secret(opaque_secret()),
         created_at=now,
@@ -97,7 +96,7 @@ def create_invitation(
         "Created invitation.",
     )
     db.commit()
-    return invitation_json(invitation)
+    return invitation
 
 
 @router.get(
@@ -107,7 +106,7 @@ def create_invitation(
 )
 def list_invitations(
     page_number: int = Query(1, alias="page", ge=1),
-    page_size: int = Query(25, alias="pageSize", ge=1, le=100),
+    page_size: int = Query(25, ge=1, le=100),
     status: InvitationStatus | None = None,
     search: str | None = None,
     actor: Membership = Depends(current_membership),
@@ -129,7 +128,7 @@ def list_invitations(
         )
     )
     total = db.scalar(select(func.count()).select_from(query.subquery())) or 0
-    return page([invitation_json(x) for x in rows], page_number, page_size, total)
+    return page(rows, page_number, page_size, total)
 
 
 @router.post(
@@ -141,7 +140,7 @@ def resend(
     invitation_id: uuid.UUID,
     actor: Membership = Depends(current_membership),
     db: Session = Depends(get_db),
-) -> dict[str, object]:
+) -> Invitation:
     invitation = find_invitation(db, invitation_id, actor)
     expire_invitations(db, actor.household_id)
     db.refresh(invitation)
@@ -160,7 +159,7 @@ def resend(
         "Rotated invitation capability.",
     )
     db.commit()
-    return invitation_json(invitation)
+    return invitation
 
 
 @router.delete("/household/invitations/{invitation_id}", status_code=204)
@@ -215,7 +214,7 @@ def acceptance_link(
         "Rotated invitation acceptance link.",
     )
     db.commit()
-    return {"acceptanceUrl": f"{get_settings().frontend_url}/invite/{secret}"}
+    return {"acceptance_url": f"{get_settings().frontend_url}/invite/{secret}"}
 
 
 def invitation_by_token(token: str, db: Session, lock: bool = False) -> Invitation:
@@ -229,15 +228,13 @@ def invitation_by_token(token: str, db: Session, lock: bool = False) -> Invitati
 @router.get(
     "/invitations/{token}", response_model=InvitationResponse, response_model_exclude_none=True
 )
-def inspect_invitation(
-    token: str, request: Request, db: Session = Depends(get_db)
-) -> dict[str, object]:
+def inspect_invitation(token: str, request: Request, db: Session = Depends(get_db)) -> Invitation:
     limited(f"inspect:{request.client.host if request.client else 'unknown'}")
     invitation = invitation_by_token(token, db)
     expire_invitations(db, invitation.household_id)
     db.refresh(invitation)
     db.commit()
-    return invitation_json(invitation)
+    return invitation
 
 
 @router.post("/invitations/{token}/accept", response_model=AuthResponse)
@@ -247,7 +244,7 @@ def accept_invitation(
     request: Request,
     response: Response,
     db: Session = Depends(get_db),
-) -> dict[str, object]:
+) -> AuthResponse:
     limited(f"accept:{request.client.host if request.client else 'unknown'}", 10)
     invitation = invitation_by_token(token, db, True)
     expire_invitations(db, invitation.household_id)
@@ -305,4 +302,4 @@ def accept_invitation(
             "DUPLICATE",
             "The invitation could not be accepted because the account already exists.",
         ) from None
-    return auth_json(member)
+    return build_auth_response(member)
