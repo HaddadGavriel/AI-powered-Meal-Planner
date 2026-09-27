@@ -199,7 +199,7 @@ class Ingredient(Base):
         Enum(IngredientStatus, name="ingredient_status"), default=IngredientStatus.active
     )
     allergens: Mapped[list[str]] = mapped_column(ARRAY(String), default=list)
-    notes: Mapped[str | None] = mapped_column(Text)
+    notes: Mapped[str] = mapped_column(Text, default="")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()

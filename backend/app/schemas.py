@@ -221,7 +221,7 @@ class IngredientCreate(BaseModel):
     default_unit: IngredientUnitValue
     status: IngredientStatusValue = "active"
     allergens: list[str] = Field(default_factory=list)
-    notes: str | None = None
+    notes: str = ""
 
     @field_validator("name", mode="before")
     @classmethod

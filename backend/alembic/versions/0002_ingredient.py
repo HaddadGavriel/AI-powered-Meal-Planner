@@ -46,7 +46,7 @@ def upgrade() -> None:
             "status", sa.Enum("active", "archived", name="ingredient_status"), nullable=False
         ),
         sa.Column("allergens", postgresql.ARRAY(sa.String()), nullable=False),
-        sa.Column("notes", sa.Text(), nullable=True),
+        sa.Column("notes", sa.Text(), server_default="", nullable=False),
         sa.Column(
             "created_at",
             sa.DateTime(timezone=True),
