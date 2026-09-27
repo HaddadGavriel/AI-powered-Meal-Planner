@@ -251,7 +251,7 @@ class IngredientPatch(BaseModel):
 
         return normalized_name(value).title()
 
-    @field_validator("category", "default_unit", "status", "allergens", mode="before")
+    @field_validator("category", "default_unit", "status", "allergens", "notes", mode="before")
     @classmethod
     def reject_null(cls, value: Any) -> Any:
         if value is None:
