@@ -31,16 +31,18 @@ import type {
   WeeklyMealPlan,
 } from '@/lib/types';
 import {
-  acceptanceLinkFromWire,
-  authEnvelopeFromWire,
-  authEnvelopeWireSchema,
-  bootstrapFromWire,
-  bootstrapWireSchema,
-  dietaryProfileFromWire,
-  householdFromWire,
-  invitationFromWire,
-  memberFromWire,
+  acceptanceLinkHttpSchema,
+  authEnvelopeHttpSchema,
+  bootstrapHttpSchema,
+  dietaryProfileHttpSchema,
+  householdHttpSchema,
+  ingredientHttpSchema,
+  invitationHttpSchema,
+  memberHttpSchema,
+  recipeHttpSchema,
+  shoppingListHttpSchema,
   toWireRequest,
+  weeklyMealPlanHttpSchema,
 } from './http-wire';
 import { createSeedData, createSeedInvitationSecrets, DEMO_ACCOUNTS, DEMO_PASSWORD } from './seed';
 export const STORAGE_KEY = 'meal-planner:data:v2';
@@ -48,7 +50,7 @@ export const SESSION_KEY = 'meal-planner:session:v2';
 export const INVITATION_SECRETS_KEY = 'meal-planner:invitation-secrets:v1';
 export const CREDENTIALS_KEY = 'meal-planner:credentials:v1';
 const voidSchema = z.undefined();
-const authEnvelopeSchema = authEnvelopeWireSchema.transform(authEnvelopeFromWire);
+const authEnvelopeSchema = authEnvelopeHttpSchema;
 const backendErrorSchema = z.object({
   error: z.object({
     code: z.string().default('REQUEST_FAILED'),
@@ -1116,7 +1118,7 @@ export class HttpMealPlannerRepository implements MealPlannerRepository {
     }
   }
   async getData() {
-    return this.request('/bootstrap', bootstrapWireSchema.transform(bootstrapFromWire));
+    return this.request('/bootstrap', bootstrapHttpSchema);
   }
   async reset() {
     throw new RepositoryError('Reset is available only in mock mode.', 'UNSUPPORTED');
@@ -1143,16 +1145,16 @@ export class HttpMealPlannerRepository implements MealPlannerRepository {
   }
   async currentUser() {
     if (!(await this.getSession())) return null;
-    return this.request('/users/me', z.unknown().transform(memberFromWire));
+    return this.request('/users/me', memberHttpSchema);
   }
   async updateProfile(input: Pick<User, 'name' | 'email'>) {
-    return this.request('/users/me', z.unknown().transform(memberFromWire), {
+    return this.request('/users/me', memberHttpSchema, {
       method: 'PATCH',
       body: JSON.stringify(toWireRequest(input)),
     });
   }
   async updateHousehold(input: Partial<Household>) {
-    return this.request('/household', z.unknown().transform(householdFromWire), {
+    return this.request('/household', householdHttpSchema, {
       method: 'PATCH',
       body: JSON.stringify(toWireRequest(input)),
     });
@@ -1161,40 +1163,32 @@ export class HttpMealPlannerRepository implements MealPlannerRepository {
     id: string,
     input: Omit<DietaryProfile, 'id' | 'memberId' | 'updatedAt'>,
   ) {
-    return this.request(
-      `/household/members/${id}/dietary-profile`,
-      z.unknown().transform(dietaryProfileFromWire),
-      {
-        method: 'PUT',
-        body: JSON.stringify(toWireRequest(input)),
-      },
-    );
+    return this.request(`/household/members/${id}/dietary-profile`, dietaryProfileHttpSchema, {
+      method: 'PUT',
+      body: JSON.stringify(toWireRequest(input)),
+    });
   }
   async invite(email: string, proposedRole: Exclude<Role, 'owner'>) {
-    return this.request('/household/invitations', z.unknown().transform(invitationFromWire), {
+    return this.request('/household/invitations', invitationHttpSchema, {
       method: 'POST',
       body: JSON.stringify(toWireRequest({ email, proposedRole })),
     });
   }
   async resendInvitation(id: string) {
-    return this.request(
-      `/household/invitations/${id}/resend`,
-      z.unknown().transform(invitationFromWire),
-      {
-        method: 'POST',
-      },
-    );
+    return this.request(`/household/invitations/${id}/resend`, invitationHttpSchema, {
+      method: 'POST',
+    });
   }
   async revokeInvitation(id: string) {
     return this.request(`/household/invitations/${id}`, voidSchema, { method: 'DELETE' });
   }
   async inspectInvitation(token: string) {
-    return this.raw(`/invitations/${token}`, z.unknown().transform(invitationFromWire), {}, false);
+    return this.raw(`/invitations/${token}`, invitationHttpSchema, {}, false);
   }
   async getInvitationAcceptanceUrl(id: string) {
     const result = await this.request(
       `/household/invitations/${id}/acceptance-link`,
-      z.unknown().transform(acceptanceLinkFromWire),
+      acceptanceLinkHttpSchema,
       { method: 'POST' },
     );
     return result.acceptanceUrl;
@@ -1211,7 +1205,7 @@ export class HttpMealPlannerRepository implements MealPlannerRepository {
     return this.session;
   }
   async changeRole(id: string, role: Role) {
-    return this.request(`/household/members/${id}`, z.unknown().transform(memberFromWire), {
+    return this.request(`/household/members/${id}`, memberHttpSchema, {
       method: 'PATCH',
       body: JSON.stringify(toWireRequest({ role })),
     });
@@ -1220,13 +1214,13 @@ export class HttpMealPlannerRepository implements MealPlannerRepository {
     return this.request(`/household/members/${id}`, voidSchema, { method: 'DELETE' });
   }
   async createIngredient(input: IngredientInput) {
-    return this.request('/ingredients', ingredientSchema, {
+    return this.request('/ingredients', ingredientHttpSchema, {
       method: 'POST',
       body: JSON.stringify(toWireRequest(input)),
     });
   }
   async updateIngredient(id: string, input: Partial<IngredientInput>) {
-    return this.request(`/ingredients/${id}`, ingredientSchema, {
+    return this.request(`/ingredients/${id}`, ingredientHttpSchema, {
       method: 'PATCH',
       body: JSON.stringify(toWireRequest(input)),
     });
@@ -1235,13 +1229,13 @@ export class HttpMealPlannerRepository implements MealPlannerRepository {
     return this.request(`/ingredients/${id}`, voidSchema, { method: 'DELETE' });
   }
   async createRecipe(input: RecipeInput) {
-    return this.request('/recipes', recipeSchema, {
+    return this.request('/recipes', recipeHttpSchema, {
       method: 'POST',
       body: JSON.stringify(toWireRequest(input)),
     });
   }
   async updateRecipe(id: string, input: Partial<RecipeInput>) {
-    return this.request(`/recipes/${id}`, recipeSchema, {
+    return this.request(`/recipes/${id}`, recipeHttpSchema, {
       method: 'PATCH',
       body: JSON.stringify(toWireRequest(input)),
     });
@@ -1250,13 +1244,13 @@ export class HttpMealPlannerRepository implements MealPlannerRepository {
     return this.request(`/recipes/${id}`, voidSchema, { method: 'DELETE' });
   }
   async createPlan(input: PlanInput) {
-    return this.request('/meal-plans', weeklyMealPlanSchema, {
+    return this.request('/meal-plans', weeklyMealPlanHttpSchema, {
       method: 'POST',
       body: JSON.stringify(toWireRequest(input)),
     });
   }
   async updatePlan(id: string, input: Partial<PlanInput>) {
-    return this.request(`/meal-plans/${id}`, weeklyMealPlanSchema, {
+    return this.request(`/meal-plans/${id}`, weeklyMealPlanHttpSchema, {
       method: 'PATCH',
       body: JSON.stringify(toWireRequest(input)),
     });
@@ -1272,28 +1266,30 @@ export class HttpMealPlannerRepository implements MealPlannerRepository {
   ) {
     return this.request(
       `/meal-plans/${planId}/entries${input.id ? `/${input.id}` : ''}`,
-      weeklyMealPlanSchema,
+      weeklyMealPlanHttpSchema,
       { method: input.id ? 'PATCH' : 'POST', body: JSON.stringify(toWireRequest(input)) },
     );
   }
   async removeMeal(planId: string, mealId: string) {
-    return this.request(`/meal-plans/${planId}/entries/${mealId}`, weeklyMealPlanSchema, {
+    return this.request(`/meal-plans/${planId}/entries/${mealId}`, weeklyMealPlanHttpSchema, {
       method: 'DELETE',
     });
   }
   async generateShoppingList(planId: string) {
-    return this.request(`/meal-plans/${planId}/shopping-list`, shoppingListSchema, {
+    return this.request(`/meal-plans/${planId}/shopping-list`, shoppingListHttpSchema, {
       method: 'POST',
     });
   }
   async updateShoppingList(id: string, input: Partial<ShoppingList>) {
-    return this.request(`/shopping-lists/${id}`, shoppingListSchema, {
+    return this.request(`/shopping-lists/${id}`, shoppingListHttpSchema, {
       method: 'PATCH',
       body: JSON.stringify(toWireRequest(input)),
     });
   }
   async clearChecked(id: string) {
-    return this.request(`/shopping-lists/${id}/checked`, shoppingListSchema, { method: 'DELETE' });
+    return this.request(`/shopping-lists/${id}/checked`, shoppingListHttpSchema, {
+      method: 'DELETE',
+    });
   }
 }
 export function createRepository(): MealPlannerRepository {

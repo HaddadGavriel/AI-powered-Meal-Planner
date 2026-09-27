@@ -323,6 +323,26 @@ describe('HTTP repository authentication and validation', () => {
       default_servings: 7,
     });
   });
+  it('wraps frontend-domain validation failures as invalid backend responses', async () => {
+    const invalidWireHousehold = {
+      ...(toWireRequest(seedData.household) as Record<string, unknown>),
+      timezone: 'Mars/Olympus',
+    };
+    const fetcher = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse(wireEnvelope))
+      .mockResolvedValueOnce(jsonResponse(invalidWireHousehold));
+    const repository = new HttpMealPlannerRepository('/api/v1', fetcher as typeof fetch);
+    await repository.login(user.email, 'password');
+
+    await expect(repository.updateHousehold({ timezone: 'Mars/Olympus' })).rejects.toEqual(
+      expect.objectContaining({
+        name: 'Error',
+        code: 'INVALID_RESPONSE',
+        status: 200,
+      }),
+    );
+  });
   it('refreshes with the HTTP-only cookie before bootstrap', async () => {
     const fetcher = vi
       .fn()
