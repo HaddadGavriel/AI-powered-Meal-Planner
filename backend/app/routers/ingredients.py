@@ -1,4 +1,3 @@
-
 from fastapi import APIRouter, Depends
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
