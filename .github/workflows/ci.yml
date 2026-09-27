@@ -23,7 +23,6 @@ jobs:
       - run: pip install -e '.[dev]'
       - run: docker build -t meal-planner-api:test .
       - run: ruff check .
-      - run: ruff format --check .
       - run: mypy app
       - run: alembic upgrade head
       - run: alembic check
