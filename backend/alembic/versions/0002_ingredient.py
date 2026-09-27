@@ -73,5 +73,5 @@ def downgrade() -> None:
     sa.Enum(name="ingredient_category").drop(op.get_bind(), checkfirst=True)
     sa.Enum(name="ingredient_unit").drop(op.get_bind(), checkfirst=True)
     sa.Enum(name="ingredient_status").drop(op.get_bind(), checkfirst=True)
-    
+
     # ### end Alembic commands ###
