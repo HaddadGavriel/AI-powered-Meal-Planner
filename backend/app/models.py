@@ -186,9 +186,7 @@ class Ingredient(Base):
     __table_args__ = (UniqueConstraint("household_id", "name", name="uq_ingredient"),)
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid4)
-    household_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("households.id", ondelete="CASCADE")
-    )
+    household_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("households.id", ondelete="CASCADE"))
 
     name: Mapped[str] = mapped_column(String(120))
     category: Mapped[IngredientCategory] = mapped_column(
@@ -203,4 +201,6 @@ class Ingredient(Base):
     allergens: Mapped[list[str]] = mapped_column(ARRAY(String), default=list)
     notes: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )

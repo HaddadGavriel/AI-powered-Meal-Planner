@@ -7,7 +7,18 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 
 RoleValue = Literal["owner", "administrator", "member"]
-IngredientCategoryValue = Literal["Produce", "Meat and poultry", "Seafood", "Dairy", "Grains", "Legumes", "Spices", "Condiments", "Baking", "Other"]
+IngredientCategoryValue = Literal[
+    "Produce",
+    "Meat and poultry",
+    "Seafood",
+    "Dairy",
+    "Grains",
+    "Legumes",
+    "Spices",
+    "Condiments",
+    "Baking",
+    "Other",
+]
 IngredientUnitValue = Literal["grams", "kilograms", "milliliters", "liters", "units"]
 IngredientStatusValue = Literal["active", "archived"]
 
