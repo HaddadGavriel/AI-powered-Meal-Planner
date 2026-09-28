@@ -1,6 +1,6 @@
 import uuid
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy import func, select
+from sqlalchemy import func, select, or_
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -8,7 +8,7 @@ from app.api_support import audit, current_membership, elevated
 from app.database import get_db
 from app.errors import ApiError
 from app.models import Ingredient, IngredientCategory, IngredientStatus, IngredientUnit, Membership
-from app.schemas import IngredientCreate, IngredientResponse, IngredientPatch
+from app.schemas import IngredientCreate, IngredientResponse, IngredientPatch, page, IngredientPageResponse
 
 
 router = APIRouter(prefix="/ingredients")
@@ -138,8 +138,8 @@ def delete_ingredient(
         ) from None
 
 
-@router.get("/ingredients", response_model=list[IngredientResponse])
-def get_all_ingredients(
+@router.get("", response_model=IngredientPageResponse)
+def get_ingredients(
     page_number: int = Query(1, alias="page", ge=1),
     page_size: int = Query(25, ge=1, le=100),
     search: str | None = None,
@@ -148,16 +148,16 @@ def get_all_ingredients(
     member: Membership = Depends(current_membership),
     db: Session = Depends(get_db),
 ) -> dict[str, object]:
-    query = select(Membership).join(User).where(Membership.household_id == member.household_id)
-    if role:
-        query = query.where(Membership.role == role)
+    query = select(Ingredient).where(Ingredient.household_id == member.household_id)
+    if category:
+        query = query.where(Ingredient.category == category)
     if status:
-        query = query.where(Membership.status == status)
+        query = query.where(Ingredient.status == status)
     if search:
-        query = query.where(or_(User.name.ilike(f"%{search}%"), User.email.ilike(f"%{search}%")))
+        query = query.where(Ingredient.name.ilike(f"%{search}%"))
     rows = list(
-        db.scalars(query.order_by(User.name).offset((page_number - 1) * page_size).limit(page_size))
+        db.scalars(query.order_by(Ingredient.name).offset((page_number - 1) * page_size).limit(page_size))
     )
     total = db.scalar(select(func.count()).select_from(query.subquery())) or 0
-    return page([build_member_response(x) for x in rows], page_number, page_size, total)
+    return page(rows, page_number, page_size, total)
 
