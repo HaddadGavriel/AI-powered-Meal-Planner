@@ -264,3 +264,8 @@ class IngredientResponse(IngredientCreate):
     created_at: datetime
     updated_at: datetime
     model_config = ConfigDict(from_attributes=True)
+
+
+class IngredientPageResponse(PageResponse):
+    items: list[IngredientResponse]
+
