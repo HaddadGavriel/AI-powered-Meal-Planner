@@ -1,13 +1,13 @@
 import uuid
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy import func, select, or_
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.api_support import audit, current_membership, elevated
 from app.database import get_db
 from app.errors import ApiError
-from app.models import Ingredient, IngredientCategory, IngredientStatus, IngredientUnit, Membership
+from app.models import Ingredient, IngredientCategory, IngredientStatus, Membership
 from app.schemas import IngredientCreate, IngredientResponse, IngredientPatch, page, IngredientPageResponse
 
 
@@ -36,7 +36,7 @@ def create_ingredient(
         name=body.name,
         category=IngredientCategory(body.category),
         status=IngredientStatus(body.status),
-        default_unit=IngredientUnit(body.default_unit),
+        default_unit=body.default_unit,
         allergens=body.allergens,
         notes=body.notes,
     )
@@ -87,8 +87,6 @@ def update_ingredient(
     for field, value in fields.items():
         if field == "category":
             value = IngredientCategory(value)
-        elif field == "default_unit":
-            value = IngredientUnit(value)
         elif field == "status":
             value = IngredientStatus(value)
     

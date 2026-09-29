@@ -19,7 +19,6 @@ IngredientCategoryValue = Literal[
     "Baking",
     "Other",
 ]
-IngredientUnitValue = Literal["grams", "kilograms", "milliliters", "liters", "units"]
 IngredientStatusValue = Literal["active", "archived"]
 
 
@@ -218,7 +217,7 @@ def page(
 class IngredientCreate(BaseModel):
     name: str = Field(min_length=2, max_length=120)
     category: IngredientCategoryValue
-    default_unit: IngredientUnitValue
+    default_unit: str = Field(min_length=1, max_length=120)
     status: IngredientStatusValue = "active"
     allergens: list[str] = Field(default_factory=list)
     notes: str = ""
@@ -231,11 +230,24 @@ class IngredientCreate(BaseModel):
 
         return normalized_name(value).title()
 
+    @field_validator("default_unit", mode="before")
+    @classmethod
+    def normalize_unit(cls, value: str) -> str:
+        if not isinstance(value, str):
+            return value
+
+        value = value.strip()
+        if not value:
+            raise ValueError("Default unit cannot be empty")
+
+        return value
+    
+
 
 class IngredientPatch(BaseModel):
     name: str | None = Field(None, min_length=2, max_length=120)
     category: IngredientCategoryValue | None = None
-    default_unit: IngredientUnitValue | None = None
+    default_unit: str | None = Field(None, min_length=1, max_length=120)
     status: IngredientStatusValue | None = None
     allergens: list[str] | None = None
     notes: str | None = None

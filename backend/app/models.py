@@ -50,14 +50,6 @@ class IngredientCategory(enum.StrEnum):
     other = "Other"
 
 
-class IngredientUnit(enum.StrEnum):
-    grams = "grams"
-    kilograms = "kilograms"
-    milliliters = "milliliters"
-    liters = "liters"
-    units = "units"
-
-
 class IngredientStatus(enum.StrEnum):
     active = "active"
     archived = "archived"
@@ -183,7 +175,13 @@ class AuditEvent(Base):
 class Ingredient(Base):
     __tablename__ = "ingredients"
 
-    __table_args__ = (UniqueConstraint("household_id", "name", name="uq_ingredient"),)
+    __table_args__ = (
+        Index(
+            "uq_ingredient_household_name_ci",
+            "household_id", text("lower(name)"),
+            unique=True, 
+        ),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid4)
     household_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("households.id", ondelete="CASCADE"))
@@ -192,12 +190,10 @@ class Ingredient(Base):
     category: Mapped[IngredientCategory] = mapped_column(
         Enum(IngredientCategory, name="ingredient_category")
     )
-    default_unit: Mapped[IngredientUnit] = mapped_column(
-        Enum(IngredientUnit, name="ingredient_unit")
-    )
     status: Mapped[IngredientStatus] = mapped_column(
         Enum(IngredientStatus, name="ingredient_status"), default=IngredientStatus.active
     )
+    default_unit: Mapped[str] = mapped_column(String(120))
     allergens: Mapped[list[str]] = mapped_column(ARRAY(String), default=list)
     notes: Mapped[str] = mapped_column(Text, default="")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
