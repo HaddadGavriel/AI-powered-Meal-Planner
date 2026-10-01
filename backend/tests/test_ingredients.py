@@ -3,7 +3,6 @@ from tests.helpers import login
 from app.database import SessionLocal
 from app.models import Ingredient
 
-from sqlalchemy import func
 from fastapi.testclient import TestClient
 
 BASE_URL = r"/api/v1/ingredients"
