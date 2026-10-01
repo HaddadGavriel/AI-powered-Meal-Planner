@@ -3,6 +3,7 @@ from datetime import UTC, datetime
 
 import pytest
 from fastapi.testclient import TestClient
+from httpx import Response
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 
@@ -14,6 +15,7 @@ from app.models import (
     IngredientCategory,
     IngredientStatus,
     Membership,
+    Role,
 )
 from app.seed import SEED_HOUSEHOLD_ID
 from tests.helpers import login
@@ -49,9 +51,9 @@ def create_ingredient(
     return response.json()
 
 
-def assert_error(response: object, status_code: int, code: str) -> None:
-    assert getattr(response, "status_code") == status_code
-    assert getattr(response, "json")()["error"]["code"] == code
+def assert_error(response: Response, status_code: int, code: str) -> None:
+    assert response.status_code == status_code
+    assert response.json()["error"]["code"] == code
 
 
 def ingredient_count() -> int:
@@ -197,11 +199,13 @@ def test_database_enforces_household_scoped_case_insensitive_names() -> None:
 
 def test_patch_subset_normalizes_and_preserves_unspecified_fields(client: TestClient) -> None:
     headers = login(client)
-    created = client.post(
+    create_response = client.post(
         BASE_URL,
         headers=headers,
         json={**VALID_INGREDIENT, "allergens": ["initial"], "notes": "original"},
-    ).json()
+    )
+    assert create_response.status_code == 201
+    created = create_response.json()
     response = client.patch(
         f"{BASE_URL}/{created['id']}",
         headers=headers,
@@ -282,6 +286,13 @@ def test_patch_rejects_invalid_values(client: TestClient, patch: dict[str, objec
     created = create_ingredient(client, headers)
     response = client.patch(f"{BASE_URL}/{created['id']}", headers=headers, json=patch)
     assert response.status_code == 422
+    with SessionLocal() as db:
+        ingredient = db.get(Ingredient, created["id"])
+        assert ingredient is not None
+        assert ingredient.name == "Carrot"
+        assert ingredient.category == IngredientCategory.produce
+        assert ingredient.default_unit == "grams"
+        assert ingredient.status == IngredientStatus.active
 
 
 def test_duplicate_patch_is_atomic_and_does_not_audit(client: TestClient) -> None:
@@ -292,7 +303,9 @@ def test_duplicate_patch_is_atomic_and_does_not_audit(client: TestClient) -> Non
     assert_error(response, 409, "DUPLICATE")
 
     with SessionLocal() as db:
-        assert db.get(Ingredient, potato["id"]).name == "Potato"  # type: ignore[union-attr]
+        persisted_potato = db.get(Ingredient, potato["id"])
+        assert persisted_potato is not None
+        assert persisted_potato.name == "Potato"
         persisted_tomato = db.get(Ingredient, tomato["id"])
         assert persisted_tomato is not None
         assert persisted_tomato.name == "Tomato"
@@ -321,7 +334,9 @@ def test_archive_hides_ingredient_and_restore_returns_it(client: TestClient) -> 
     archived_items = client.get(f"{BASE_URL}?status=archived", headers=headers).json()["items"]
     assert [item["id"] for item in archived_items] == [created["id"]]
     with SessionLocal() as db:
-        assert db.get(Ingredient, created["id"]).status == IngredientStatus.archived  # type: ignore[union-attr]
+        ingredient = db.get(Ingredient, created["id"])
+        assert ingredient is not None
+        assert ingredient.status == IngredientStatus.archived
 
     restored = client.patch(f"{BASE_URL}/{created['id']}", headers=headers, json={"status": "active"})
     assert restored.status_code == 200
@@ -466,7 +481,10 @@ def test_successful_mutations_create_authoritative_audit_events(client: TestClie
 
     with SessionLocal() as db:
         actor_id = db.scalar(
-            select(Membership.id).where(Membership.household_id == SEED_HOUSEHOLD_ID, Membership.role == "owner")
+            select(Membership.id).where(
+                Membership.household_id == SEED_HOUSEHOLD_ID,
+                Membership.role == Role.owner,
+            )
         )
         events = db.scalars(
             select(AuditEvent)

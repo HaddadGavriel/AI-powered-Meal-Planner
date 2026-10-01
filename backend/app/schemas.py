@@ -29,6 +29,13 @@ def normalized_name(value: str) -> str:
     return value
 
 
+def normalized_unit(value: str) -> str:
+    value = value.strip()
+    if not value:
+        raise ValueError("Default unit cannot be empty")
+    return value
+
+
 class Login(BaseModel):
     email: EmailStr
     password: str = Field(min_length=8)
@@ -202,9 +209,7 @@ class PageParams(BaseModel):
     page_size: int = Field(25, ge=1, le=100)
 
 
-def page(
-    items: Sequence[object], page_number: int, page_size: int, total: int
-) -> dict[str, object]:
+def page(items: Sequence[object], page_number: int, page_size: int, total: int) -> dict[str, object]:
     return {
         "items": items,
         "page": page_number,
@@ -236,12 +241,8 @@ class IngredientCreate(BaseModel):
         if not isinstance(value, str):
             return value
 
-        value = value.strip()
-        if not value:
-            raise ValueError("Default unit cannot be empty")
+        return normalized_unit(value)
 
-        return value
-    
 
 class IngredientPatch(BaseModel):
     name: str | None = Field(None, min_length=2, max_length=120)
@@ -262,7 +263,18 @@ class IngredientPatch(BaseModel):
 
         return normalized_name(value).title()
 
-    @field_validator("category", "default_unit", "status", "allergens", "notes", mode="before")
+    @field_validator("default_unit", mode="before")
+    @classmethod
+    def normalize_unit(cls, value: str | None) -> str | None:
+        if value is None:
+            raise ValueError("Default unit cannot be null.")
+
+        if not isinstance(value, str):
+            return value
+
+        return normalized_unit(value)
+
+    @field_validator("category", "status", "allergens", "notes", mode="before")
     @classmethod
     def reject_null(cls, value: Any) -> Any:
         if value is None:
@@ -279,4 +291,3 @@ class IngredientResponse(IngredientCreate):
 
 class IngredientPageResponse(PageResponse):
     items: list[IngredientResponse]
-
