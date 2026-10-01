@@ -15,6 +15,7 @@ jobs:
     defaults: { run: { working-directory: backend } }
     env:
       MEAL_PLANNER_DATABASE_URL: postgresql+psycopg://postgres:postgres@localhost:5432/meal_planner_test
+      MEAL_PLANNER_TEST_DATABASE_URL: postgresql+psycopg://postgres:postgres@localhost:5432/meal_planner_test
       MEAL_PLANNER_JWT_SECRET: ci-only-secret-at-least-thirty-two-characters
     steps:
       - uses: actions/checkout@v4

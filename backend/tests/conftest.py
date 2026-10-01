@@ -4,11 +4,13 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import text
 
-# Tests deliberately require PostgreSQL; there is no SQLite fallback.
-os.environ.setdefault(
-    "MEAL_PLANNER_DATABASE_URL",
-    "postgresql+psycopg://postgres:postgres@localhost:5432/meal_planner_test",
-)
+from dotenv import load_dotenv
+
+load_dotenv()
+
+os.environ["MEAL_PLANNER_DATABASE_URL"] = os.environ[
+    "MEAL_PLANNER_TEST_DATABASE_URL"
+]
 os.environ.setdefault("MEAL_PLANNER_JWT_SECRET", "test-secret-at-least-thirty-two-characters")
 
 from app.database import Base, engine  # noqa: E402

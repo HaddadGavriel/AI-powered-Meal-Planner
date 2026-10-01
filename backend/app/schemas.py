@@ -243,7 +243,6 @@ class IngredientCreate(BaseModel):
         return value
     
 
-
 class IngredientPatch(BaseModel):
     name: str | None = Field(None, min_length=2, max_length=120)
     category: IngredientCategoryValue | None = None
