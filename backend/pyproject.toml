@@ -22,7 +22,7 @@ meal-planner-seed = "app.seed:main"
 # boundary explicitly also prevents future top-level tooling directories from
 # being included through setuptools' implicit namespace-package discovery.
 [tool.setuptools]
-packages = ["app", "app.routers"]
+packages = ["app", "app.models", "app.routers", "app.schemas"]
 
 [tool.ruff]
 line-length = 120
